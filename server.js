@@ -1,10 +1,15 @@
 const express = require("express");
+const cors = require("cors");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+app.use(cors({
+  origin: "https://fc-points-miniapp.onrender.com"
+}));
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
