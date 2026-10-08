@@ -1,1 +1,193 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FP Points</title>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      color: #172033;
+      min-height: 100vh;
+    }
+
+    .app {
+      max-width: 500px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      padding: 25px 0;
+    }
+
+    .logo {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: auto;
+      font-size: 24px;
+      font-weight: bold;
+      box-shadow: 0 5px 20px rgba(0,0,0,.08);
+    }
+
+    h1 {
+      margin-top: 12px;
+      font-size: 25px;
+    }
+
+    .subtitle {
+      margin-top: 5px;
+      color: #687386;
+      font-size: 14px;
+    }
+
+    .points-card {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 25px;
+      text-align: center;
+      box-shadow: 0 8px 25px rgba(0,0,0,.07);
+      margin-top: 10px;
+    }
+
+    .points-label {
+      color: #687386;
+      font-size: 14px;
+    }
+
+    .points {
+      font-size: 38px;
+      font-weight: bold;
+      margin: 8px 0;
+    }
+
+    .unit {
+      font-size: 15px;
+      color: #687386;
+    }
+
+    .section {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 20px;
+      margin-top: 18px;
+      box-shadow: 0 6px 20px rgba(0,0,0,.05);
+    }
+
+    .section h2 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .section p {
+      color: #687386;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .button {
+      width: 100%;
+      border: none;
+      border-radius: 14px;
+      padding: 14px;
+      margin-top: 15px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #172033;
+      color: white;
+    }
+
+    .footer {
+      text-align: center;
+      color: #8993a4;
+      font-size: 12px;
+      padding: 25px 0;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="app">
+
+    <div class="header">
+      <div class="logo">FP</div>
+      <h1>FP Points</h1>
+      <div class="subtitle">Earn points and enjoy rewards</div>
+    </div>
+
+    <div class="points-card">
+      <div class="points-label">Your Balance</div>
+      <div class="points" id="points">0</div>
+      <div class="unit">FP Points</div>
+    </div>
+
+    <div class="section">
+      <h2>Daily Earning</h2>
+      <p>
+        Earn FP Points through daily activities, tasks and available rewards.
+      </p>
+
+      <button class="button" onclick="startEarning()">
+        Start Earning
+      </button>
+    </div>
+
+    <div class="section">
+      <h2>Daily Check-in</h2>
+      <p>Claim your daily FP Points reward.</p>
+
+      <button class="button" onclick="dailyCheckin()">
+        Daily Check-in
+      </button>
+    </div>
+
+    <div class="footer">
+      FP Points
+    </div>
+
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+
+    tg.ready();
+    tg.expand();
+
+    let points = 0;
+
+    function updatePoints() {
+      document.getElementById("points").textContent = points;
+    }
+
+    function startEarning() {
+      alert("Earning system will be activated soon.");
+    }
+
+    function dailyCheckin() {
+      alert("Daily Check-in will be connected to the database soon.");
+    }
+
+    updatePoints();
+  </script>
+
+</body>
+</html>
