@@ -104,6 +104,37 @@ app.post("/api/user/register", async (req, res) => {
   }
 });
 
+// Get user balance
+app.get("/api/user/:telegram_id", async (req, res) => {
+  try {
+    const telegram_id = req.params.telegram_id;
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("telegram_id, first_name, last_name, username, photo_url, fp_points, is_blocked, is_active")
+      .eq("telegram_id", telegram_id)
+      .single();
+
+    if (error) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found"
+      });
+    }
+
+    res.json({
+      status: "ok",
+      user: data
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`FP Points Backend running on port ${PORT}`);
 });
