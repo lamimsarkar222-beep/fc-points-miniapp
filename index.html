@@ -36,7 +36,7 @@
       width: 70px;
       height: 70px;
       border-radius: 50%;
-      background: #fff;
+      background: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -57,17 +57,13 @@
       font-size: 14px;
     }
 
-    .points-card,
-    .section {
-      background: #fff;
+    .points-card {
+      background: #ffffff;
       border-radius: 20px;
       padding: 25px;
-      box-shadow: 0 8px 25px rgba(0,0,0,.07);
-      margin-top: 18px;
-    }
-
-    .points-card {
       text-align: center;
+      box-shadow: 0 8px 25px rgba(0,0,0,.07);
+      margin-top: 10px;
     }
 
     .points-label {
@@ -84,6 +80,14 @@
     .unit {
       font-size: 15px;
       color: #687386;
+    }
+
+    .section {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 20px;
+      margin-top: 18px;
+      box-shadow: 0 6px 20px rgba(0,0,0,.05);
     }
 
     .section h2 {
@@ -112,9 +116,9 @@
 
     .status {
       text-align: center;
-      margin-top: 15px;
-      font-size: 13px;
       color: #687386;
+      font-size: 13px;
+      margin-top: 15px;
     }
 
     .footer {
@@ -145,7 +149,6 @@
     <div class="section">
       <h2>Daily Earning</h2>
       <p>Earn FP Points through daily activities, tasks and available rewards.</p>
-
       <button class="button" onclick="startEarning()">
         Start Earning
       </button>
@@ -154,7 +157,6 @@
     <div class="section">
       <h2>Daily Check-in</h2>
       <p>Claim your daily FP Points reward.</p>
-
       <button class="button" onclick="dailyCheckin()">
         Daily Check-in
       </button>
@@ -180,7 +182,8 @@
 
     const telegramUser = tg.initDataUnsafe?.user;
 
-    async function registerUser() {
+    async function loadUserBalance() {
+
       if (!telegramUser) {
         document.getElementById("status").textContent =
           "Open this app from Telegram.";
@@ -188,39 +191,33 @@
       }
 
       try {
+
         const response = await fetch(
-          `${API_URL}/api/user/register`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              telegram_id: telegramUser.id,
-              first_name: telegramUser.first_name || "",
-              last_name: telegramUser.last_name || "",
-              username: telegramUser.username || "",
-              photo_url: telegramUser.photo_url || ""
-            })
-          }
+          `${API_URL}/api/user/${telegramUser.id}`
         );
 
         const result = await response.json();
 
         if (result.status === "ok") {
+
           document.getElementById("points").textContent =
             result.user.fp_points || 0;
 
           document.getElementById("status").textContent =
             "Connected successfully";
+
         } else {
+
           document.getElementById("status").textContent =
-            "Connection failed";
+            "User not found";
+
         }
 
       } catch (error) {
+
         document.getElementById("status").textContent =
           "Server connection failed";
+
       }
     }
 
@@ -232,7 +229,7 @@
       alert("Daily Check-in will be connected next.");
     }
 
-    registerUser();
+    loadUserBalance();
   </script>
 
 </body>
