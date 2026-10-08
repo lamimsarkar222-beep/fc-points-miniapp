@@ -25,7 +25,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// Database health check
+// Database health
 app.get("/health", async (req, res) => {
   const { error } = await supabase
     .from("app_settings")
@@ -111,7 +111,9 @@ app.get("/api/user/:telegram_id", async (req, res) => {
 
     const { data, error } = await supabase
       .from("users")
-      .select("telegram_id, first_name, last_name, username, photo_url, fp_points, is_blocked, is_active")
+      .select(
+        "telegram_id, first_name, last_name, username, photo_url, fp_points, is_blocked, is_active"
+      )
       .eq("telegram_id", telegram_id)
       .single();
 
@@ -125,6 +127,135 @@ app.get("/api/user/:telegram_id", async (req, res) => {
     res.json({
       status: "ok",
       user: data
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message
+    });
+  }
+});
+
+// Normal earning
+app.post("/api/earning/claim", async (req, res) => {
+  try {
+    const { telegram_id, points } = req.body;
+
+    if (!telegram_id || !Number.isInteger(points) || points <= 0) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid earning request"
+      });
+    }
+
+    if (points > 200) {
+      return res.status(400).json({
+        status: "error",
+        message: "Daily normal earning limit is 200 FP"
+      });
+    }
+
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("fp_points, is_blocked, is_active")
+      .eq("telegram_id", telegram_id)
+      .single();
+
+    if (userError || !user) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found"
+      });
+    }
+
+    if (user.is_blocked) {
+      return res.status(403).json({
+        status: "error",
+        message: "User is blocked"
+      });
+    }
+
+    if (!user.is_active) {
+      return res.status(403).json({
+        status: "error",
+        message: "User is inactive"
+      });
+    }
+
+    const { data: reward, error: rewardError } = await supabase
+      .from("daily_rewards")
+      .select("normal_earning_points, reward_date")
+      .eq("telegram_id", telegram_id)
+      .maybeSingle();
+
+    if (rewardError) {
+      return res.status(500).json({
+        status: "error",
+        message: rewardError.message
+      });
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    let currentNormal = 0;
+
+    if (reward && reward.reward_date === today) {
+      currentNormal = reward.normal_earning_points || 0;
+    }
+
+    if (currentNormal + points > 200) {
+      return res.status(400).json({
+        status: "error",
+        message: "Daily normal earning limit reached"
+      });
+    }
+
+    const newBalance = (user.fp_points || 0) + points;
+    const newNormal = currentNormal + points;
+
+    const { error: balanceError } = await supabase
+      .from("users")
+      .update({
+        fp_points: newBalance,
+        updated_at: new Date().toISOString()
+      })
+      .eq("telegram_id", telegram_id);
+
+    if (balanceError) {
+      return res.status(500).json({
+        status: "error",
+        message: balanceError.message
+      });
+    }
+
+    const { error: rewardUpdateError } = await supabase
+      .from("daily_rewards")
+      .upsert(
+        {
+          telegram_id,
+          normal_earning_points: newNormal,
+          reward_date: today,
+          updated_at: new Date().toISOString()
+        },
+        {
+          onConflict: "telegram_id"
+        }
+      );
+
+    if (rewardUpdateError) {
+      return res.status(500).json({
+        status: "error",
+        message: rewardUpdateError.message
+      });
+    }
+
+    res.json({
+      status: "ok",
+      message: "Earning claimed",
+      added: points,
+      balance: newBalance,
+      normal_earning_today: newNormal
     });
 
   } catch (error) {
