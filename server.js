@@ -1,4 +1,3 @@
-
 const express = require("express");
 const cors = require("cors");
 const { createClient } = require("@supabase/supabase-js");
@@ -26,6 +25,7 @@ function getDhakaDate(timestamp = new Date()) {
   }).formatToParts(timestamp);
 
   const values = {};
+
   for (const part of parts) {
     values[part.type] = part.value;
   }
@@ -38,29 +38,37 @@ app.get("/", (req, res) => {
   res.json({
     status: "ok",
     service: "FP Points Backend",
-    version: "1.1"
+    version: "1.2"
   });
 });
 
 // Database health
 app.get("/health", async (req, res) => {
-  const { error } = await supabase
-    .from("app_settings")
-    .select("key")
-    .limit(1);
+  try {
+    const { error } = await supabase
+      .from("app_settings")
+      .select("key")
+      .limit(1);
 
-  if (error) {
-    return res.status(500).json({
+    if (error) {
+      return res.status(500).json({
+        status: "error",
+        database: "disconnected",
+        message: error.message
+      });
+    }
+
+    res.json({
+      status: "ok",
+      database: "connected"
+    });
+  } catch (error) {
+    res.status(500).json({
       status: "error",
       database: "disconnected",
       message: error.message
     });
   }
-
-  res.json({
-    status: "ok",
-    database: "connected"
-  });
 });
 
 // Register Telegram user
@@ -117,7 +125,7 @@ app.post("/api/user/register", async (req, res) => {
   }
 });
 
-// Get user balance
+// Get user details and balance
 app.get("/api/user/:telegram_id", async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -126,9 +134,16 @@ app.get("/api/user/:telegram_id", async (req, res) => {
         "telegram_id, first_name, last_name, username, photo_url, fp_points, is_blocked, is_active"
       )
       .eq("telegram_id", req.params.telegram_id)
-      .single();
+      .maybeSingle();
 
-    if (error || !data) {
+    if (error) {
+      return res.status(500).json({
+        status: "error",
+        message: error.message
+      });
+    }
+
+    if (!data) {
       return res.status(404).json({
         status: "error",
         message: "User not found"
@@ -147,7 +162,7 @@ app.get("/api/user/:telegram_id", async (req, res) => {
   }
 });
 
-// Normal earning: maximum 200 FP per day
+// Normal earning: maximum 200 FP per Dhaka day
 app.post("/api/earning/claim", async (req, res) => {
   try {
     const { telegram_id, points } = req.body;
@@ -168,7 +183,7 @@ app.post("/api/earning/claim", async (req, res) => {
       .from("users")
       .select("fp_points, is_blocked, is_active")
       .eq("telegram_id", telegram_id)
-      .single();
+      .maybeSingle();
 
     if (userError || !user) {
       return res.status(404).json({
@@ -262,6 +277,64 @@ app.post("/api/earning/claim", async (req, res) => {
   }
 });
 
+// Daily Check-in status: check whether today's reward was claimed
+app.get("/api/checkin/status/:telegram_id", async (req, res) => {
+  try {
+    const { telegram_id } = req.params;
+
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("telegram_id")
+      .eq("telegram_id", telegram_id)
+      .maybeSingle();
+
+    if (userError) {
+      return res.status(500).json({
+        status: "error",
+        message: userError.message
+      });
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found"
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("daily_rewards")
+      .select("checkin_claimed_at")
+      .eq("telegram_id", telegram_id)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({
+        status: "error",
+        message: error.message
+      });
+    }
+
+    const today = getDhakaDate();
+
+    const claimed = Boolean(
+      data?.checkin_claimed_at &&
+      getDhakaDate(new Date(data.checkin_claimed_at)) === today
+    );
+
+    res.json({
+      status: "ok",
+      claimed,
+      checkin_date: claimed ? today : null
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message
+    });
+  }
+});
+
 // Daily Check-in: 10 FP once per Dhaka calendar day
 app.post("/api/checkin/claim", async (req, res) => {
   try {
@@ -278,7 +351,7 @@ app.post("/api/checkin/claim", async (req, res) => {
       .from("users")
       .select("fp_points, is_blocked, is_active")
       .eq("telegram_id", telegram_id)
-      .single();
+      .maybeSingle();
 
     if (userError || !user) {
       return res.status(404).json({
@@ -320,8 +393,8 @@ app.post("/api/checkin/claim", async (req, res) => {
     }
 
     const rewardPoints = 10;
-    const newBalance = Number(user.fp_points || 0) + rewardPoints;
     const now = new Date().toISOString();
+    const newBalance = Number(user.fp_points || 0) + rewardPoints;
 
     const { error: balanceError } = await supabase
       .from("users")
@@ -371,6 +444,7 @@ app.post("/api/checkin/claim", async (req, res) => {
   }
 });
 
+// Start server
 app.listen(PORT, () => {
   console.log(`FP Points Backend running on port ${PORT}`);
 });
