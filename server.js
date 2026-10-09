@@ -1,3 +1,4 @@
+
 const express = require("express");
 const cors = require("cors");
 const { createClient } = require("@supabase/supabase-js");
@@ -16,12 +17,28 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+function getDhakaDate(timestamp = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Dhaka",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(timestamp);
+
+  const values = {};
+  for (const part of parts) {
+    values[part.type] = part.value;
+  }
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 // Home
 app.get("/", (req, res) => {
   res.json({
     status: "ok",
     service: "FP Points Backend",
-    version: "1.0"
+    version: "1.1"
   });
 });
 
@@ -66,20 +83,17 @@ app.post("/api/user/register", async (req, res) => {
 
     const { data, error } = await supabase
       .from("users")
-      .upsert(
-        {
-          telegram_id,
-          first_name: first_name || null,
-          last_name: last_name || null,
-          username: username || null,
-          photo_url: photo_url || null,
-          is_active: true,
-          updated_at: new Date().toISOString()
-        },
-        {
-          onConflict: "telegram_id"
-        }
-      )
+      .upsert({
+        telegram_id,
+        first_name: first_name || null,
+        last_name: last_name || null,
+        username: username || null,
+        photo_url: photo_url || null,
+        is_active: true,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: "telegram_id"
+      })
       .select()
       .single();
 
@@ -95,7 +109,6 @@ app.post("/api/user/register", async (req, res) => {
       message: "User registered successfully",
       user: data
     });
-
   } catch (error) {
     res.status(500).json({
       status: "error",
@@ -107,17 +120,15 @@ app.post("/api/user/register", async (req, res) => {
 // Get user balance
 app.get("/api/user/:telegram_id", async (req, res) => {
   try {
-    const telegram_id = req.params.telegram_id;
-
     const { data, error } = await supabase
       .from("users")
       .select(
         "telegram_id, first_name, last_name, username, photo_url, fp_points, is_blocked, is_active"
       )
-      .eq("telegram_id", telegram_id)
+      .eq("telegram_id", req.params.telegram_id)
       .single();
 
-    if (error) {
+    if (error || !data) {
       return res.status(404).json({
         status: "error",
         message: "User not found"
@@ -128,7 +139,6 @@ app.get("/api/user/:telegram_id", async (req, res) => {
       status: "ok",
       user: data
     });
-
   } catch (error) {
     res.status(500).json({
       status: "error",
@@ -137,22 +147,20 @@ app.get("/api/user/:telegram_id", async (req, res) => {
   }
 });
 
-// Normal earning
+// Normal earning: maximum 200 FP per day
 app.post("/api/earning/claim", async (req, res) => {
   try {
     const { telegram_id, points } = req.body;
 
-    if (!telegram_id || !Number.isInteger(points) || points <= 0) {
+    if (
+      !telegram_id ||
+      !Number.isInteger(points) ||
+      points <= 0 ||
+      points > 200
+    ) {
       return res.status(400).json({
         status: "error",
         message: "Invalid earning request"
-      });
-    }
-
-    if (points > 200) {
-      return res.status(400).json({
-        status: "error",
-        message: "Daily normal earning limit is 200 FP"
       });
     }
 
@@ -169,19 +177,14 @@ app.post("/api/earning/claim", async (req, res) => {
       });
     }
 
-    if (user.is_blocked) {
+    if (user.is_blocked || !user.is_active) {
       return res.status(403).json({
         status: "error",
-        message: "User is blocked"
+        message: "User is blocked or inactive"
       });
     }
 
-    if (!user.is_active) {
-      return res.status(403).json({
-        status: "error",
-        message: "User is inactive"
-      });
-    }
+    const today = getDhakaDate();
 
     const { data: reward, error: rewardError } = await supabase
       .from("daily_rewards")
@@ -196,13 +199,10 @@ app.post("/api/earning/claim", async (req, res) => {
       });
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-
-    let currentNormal = 0;
-
-    if (reward && reward.reward_date === today) {
-      currentNormal = reward.normal_earning_points || 0;
-    }
+    const currentNormal =
+      reward && reward.reward_date === today
+        ? Number(reward.normal_earning_points || 0)
+        : 0;
 
     if (currentNormal + points > 200) {
       return res.status(400).json({
@@ -211,7 +211,7 @@ app.post("/api/earning/claim", async (req, res) => {
       });
     }
 
-    const newBalance = (user.fp_points || 0) + points;
+    const newBalance = Number(user.fp_points || 0) + points;
     const newNormal = currentNormal + points;
 
     const { error: balanceError } = await supabase
@@ -229,24 +229,21 @@ app.post("/api/earning/claim", async (req, res) => {
       });
     }
 
-    const { error: rewardUpdateError } = await supabase
+    const { error: updateError } = await supabase
       .from("daily_rewards")
-      .upsert(
-        {
-          telegram_id,
-          normal_earning_points: newNormal,
-          reward_date: today,
-          updated_at: new Date().toISOString()
-        },
-        {
-          onConflict: "telegram_id"
-        }
-      );
+      .upsert({
+        telegram_id,
+        normal_earning_points: newNormal,
+        reward_date: today,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: "telegram_id"
+      });
 
-    if (rewardUpdateError) {
+    if (updateError) {
       return res.status(500).json({
         status: "error",
-        message: rewardUpdateError.message
+        message: updateError.message
       });
     }
 
@@ -257,7 +254,115 @@ app.post("/api/earning/claim", async (req, res) => {
       balance: newBalance,
       normal_earning_today: newNormal
     });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message
+    });
+  }
+});
 
+// Daily Check-in: 10 FP once per Dhaka calendar day
+app.post("/api/checkin/claim", async (req, res) => {
+  try {
+    const { telegram_id } = req.body;
+
+    if (!telegram_id) {
+      return res.status(400).json({
+        status: "error",
+        message: "telegram_id is required"
+      });
+    }
+
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("fp_points, is_blocked, is_active")
+      .eq("telegram_id", telegram_id)
+      .single();
+
+    if (userError || !user) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found"
+      });
+    }
+
+    if (user.is_blocked || !user.is_active) {
+      return res.status(403).json({
+        status: "error",
+        message: "User is blocked or inactive"
+      });
+    }
+
+    const today = getDhakaDate();
+
+    const { data: reward, error: rewardError } = await supabase
+      .from("daily_rewards")
+      .select("checkin_claimed_at")
+      .eq("telegram_id", telegram_id)
+      .maybeSingle();
+
+    if (rewardError) {
+      return res.status(500).json({
+        status: "error",
+        message: rewardError.message
+      });
+    }
+
+    if (
+      reward?.checkin_claimed_at &&
+      getDhakaDate(new Date(reward.checkin_claimed_at)) === today
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Daily Check-in already claimed today"
+      });
+    }
+
+    const rewardPoints = 10;
+    const newBalance = Number(user.fp_points || 0) + rewardPoints;
+    const now = new Date().toISOString();
+
+    const { error: balanceError } = await supabase
+      .from("users")
+      .update({
+        fp_points: newBalance,
+        updated_at: now
+      })
+      .eq("telegram_id", telegram_id);
+
+    if (balanceError) {
+      return res.status(500).json({
+        status: "error",
+        message: balanceError.message
+      });
+    }
+
+    const { error: updateError } = await supabase
+      .from("daily_rewards")
+      .upsert({
+        telegram_id,
+        checkin_claimed_at: now,
+        reward_date: today,
+        updated_at: now
+      }, {
+        onConflict: "telegram_id"
+      });
+
+    if (updateError) {
+      return res.status(500).json({
+        status: "error",
+        message: updateError.message
+      });
+    }
+
+    res.json({
+      status: "ok",
+      message: "Daily Check-in successful",
+      added: rewardPoints,
+      balance: newBalance,
+      checkin_date: today
+    });
   } catch (error) {
     res.status(500).json({
       status: "error",
