@@ -1,622 +1,959 @@
 
 const express = require("express");
-const cors = require("cors");
+const crypto = require("crypto");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
+app.use(express.json({ limit: "100kb" }));
+
 const PORT = process.env.PORT || 3000;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const FRONTEND_URL = process.env.FRONTEND_URL || "*";
+const ADMIN_TELEGRAM_ID = String(process.env.ADMIN_TELEGRAM_ID || "");
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 
-app.use(express.json());
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !BOT_TOKEN) {
+  console.error("Missing required environment variables.");
+  process.exit(1);
+}
 
-app.use(cors({
-  origin: "https://fc-points-miniapp.onrender.com"
-}));
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false }
+});
 
 const DAILY_MAX = 650;
 const NORMAL_MAX = 200;
-const CHECKIN_REWARD = 5;
-const DAILY_BONUS_REWARD = 5;
-const MISSION_REWARD = 5;
-const EARN_BONUS_REWARD = 15;
-const MAX_DAILY_ADS = 20;
+const CHECKIN_REWARD = 10;
+const DAILY_TASK_REWARD = 20;
 
-function getDhakaDate(timestamp = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Dhaka",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).formatToParts(timestamp);
+const BADGES = {
+  blueberry: { name: "Blueberry", price: 5000 },
+  green_berry: { name: "Green Berry", price: 10000 },
+  blue_tick: { name: "Verified Blue Tick", price: 15000 },
+  black_vip: { name: "Black VIP", price: 25000 }
+};
 
-  const values = {};
-  for (const part of parts) values[part.type] = part.value;
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", FRONTEND_URL);
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Telegram-Init-Data, X-Admin-Id, X-Admin-Password");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 
-  return `${values.year}-${values.month}-${values.day}`;
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-function sendError(res, status, message) {
-  return res.status(status).json({
-    status: "error",
-    message
-  });
+function fail(res, status, message) {
+  return res.status(status).json({ error: message });
 }
 
-async function getActiveUser(telegram_id) {
-  const { data, error } = await supabase
-    .from("users")
-    .select("telegram_id, fp_points, is_blocked, is_active")
-    .eq("telegram_id", String(telegram_id))
-    .maybeSingle();
+async function db(table, query) {
+  const result = await query;
+  if (result.error) {
+    console.error(table, result.error.message);
+    throw new Error("Database operation failed: " + table);
+  }
+  return result.data;
+}
 
-  if (error) throw error;
-  if (!data) return { error: "User not found", status: 404 };
+function verifyTelegramInitData(initData) {
+  if (!initData || typeof initData !== "string") return null;
 
-  if (data.is_blocked || !data.is_active) {
-    return { error: "User is blocked or inactive", status: 403 };
+  const params = new URLSearchParams(initData);
+  const hash = params.get("hash");
+  if (!hash) return null;
+
+  params.delete("hash");
+
+  const pairs = [];
+  for (const [key, value] of params.entries()) {
+    pairs.push(`${key}=${value}`);
+  }
+  pairs.sort();
+
+  const dataCheckString = pairs.join("\n");
+  const secretKey = crypto
+    .createHmac("sha256", "WebAppData")
+    .update(BOT_TOKEN)
+    .digest();
+
+  const expectedHash = crypto
+    .createHmac("sha256", secretKey)
+    .update(dataCheckString)
+    .digest("hex");
+
+  const a = Buffer.from(expectedHash, "hex");
+  const b = Buffer.from(hash, "hex");
+
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+
+  const authDate = Number(params.get("auth_date") || 0);
+  const now = Math.floor(Date.now() / 1000);
+
+  if (!authDate || now - authDate > 86400 || authDate > now + 60) return null;
+
+  try {
+    const user = JSON.parse(params.get("user") || "{}");
+    if (!user.id) return null;
+    return user;
+  } catch {
+    return null;
+  }
+}
+
+function telegramAuth(req, res, next) {
+  const initData = req.get("X-Telegram-Init-Data") || req.body?.initData;
+  const user = verifyTelegramInitData(initData);
+
+  if (!user) return fail(res, 401, "Telegram পরিচয় যাচাই করা যায়নি। Telegram Mini App থেকে খুলুন।");
+
+  req.telegramUser = user;
+  next();
+}
+
+function adminAuth(req, res, next) {
+  const id = String(req.get("X-Admin-Id") || "");
+  const password = String(req.get("X-Admin-Password") || "");
+
+  if (!ADMIN_TELEGRAM_ID || !ADMIN_PASSWORD ||
+      id !== ADMIN_TELEGRAM_ID || password !== ADMIN_PASSWORD) {
+    return fail(res, 403, "Admin access denied.");
   }
 
-  return { user: data };
+  next();
 }
 
-async function getDailyRewards(telegram_id) {
-  const { data, error } = await supabase
-    .from("daily_rewards")
+async function getUser(telegramId) {
+  return db("users", supabase
+    .from("users")
     .select("*")
-    .eq("telegram_id", String(telegram_id))
-    .maybeSingle();
-
-  if (error) throw error;
-  return data || {};
+    .eq("telegram_id", String(telegramId))
+    .maybeSingle());
 }
 
-async function getDailyActivity(telegram_id) {
-  const today = getDhakaDate();
+async function ensureUser(tg) {
+  let user = await getUser(tg.id);
 
-  const { data, error } = await supabase
+  if (user) {
+    if (user.is_blocked) throw new Error("এই অ্যাকাউন্টটি ব্লক করা হয়েছে।");
+    return user;
+  }
+
+  const inserted = await db("users", supabase
+    .from("users")
+    .insert({
+      telegram_id: String(tg.id),
+      username: tg.username || null,
+      first_name: tg.first_name || "User",
+      display_name: tg.first_name || "User",
+      balance: 0,
+      is_blocked: false,
+      created_at: new Date().toISOString()
+    })
+    .select("*")
+    .single());
+
+  return inserted;
+}
+
+async function getOrCreateActivity(telegramId) {
+  let row = await db("daily_activity", supabase
     .from("daily_activity")
     .select("*")
-    .eq("telegram_id", String(telegram_id))
-    .maybeSingle();
+    .eq("telegram_id", String(telegramId))
+    .eq("activity_date", today())
+    .maybeSingle());
 
-  if (error) throw error;
-
-  if (!data) {
-    const fresh = {
-      telegram_id: String(telegram_id),
-      ad_date: today,
-      ad_count: 0,
-      daily_bonus_date: null,
-      mission_date: null,
-      earn_bonus_date: null,
-      updated_at: new Date().toISOString()
-    };
-
-    const { data: inserted, error: insertError } = await supabase
+  if (!row) {
+    row = await db("daily_activity", supabase
       .from("daily_activity")
-      .insert(fresh)
-      .select()
-      .single();
-
-    if (insertError) throw insertError;
-    return inserted;
+      .insert({
+        telegram_id: String(telegramId),
+        activity_date: today(),
+        normal_earned: 0,
+        total_earned: 0,
+        daily_task_claimed: false,
+        checkin_claimed: false
+      })
+      .select("*")
+      .single());
   }
 
-  if (data.ad_date !== today) {
-    const reset = {
-      ad_date: today,
-      ad_count: 0,
-      daily_bonus_date: null,
-      mission_date: null,
-      earn_bonus_date: null,
-      updated_at: new Date().toISOString()
-    };
-
-    const { data: updated, error: updateError } = await supabase
-      .from("daily_activity")
-      .update(reset)
-      .eq("telegram_id", String(telegram_id))
-      .select()
-      .single();
-
-    if (updateError) throw updateError;
-    return updated;
-  }
-
-  return data;
+  return row;
 }
 
-async function getTodayTotal(telegram_id) {
-  const today = getDhakaDate();
-  const rewards = await getDailyRewards(telegram_id);
-  const activity = await getDailyActivity(telegram_id);
-
-  let total = 0;
-
-  if (rewards.reward_date === today) {
-    total += Number(rewards.normal_earning_points || 0);
-  }
-
-  if (
-    rewards.checkin_claimed_at &&
-    getDhakaDate(new Date(rewards.checkin_claimed_at)) === today
-  ) {
-    total += CHECKIN_REWARD;
-  }
-
-  total += Number(activity.ad_count || 0) * EARN_BONUS_REWARD;
-
-  if (activity.daily_bonus_date === today) {
-    total += DAILY_BONUS_REWARD;
-  }
-
-  if (activity.mission_date === today) {
-    total += MISSION_REWARD;
-  }
-
-  return total;
+async function addTransaction(telegramId, amount, type, description, reference = null) {
+  return db("transactions", supabase
+    .from("transactions")
+    .insert({
+      telegram_id: String(telegramId),
+      amount,
+      type,
+      description,
+      reference_id: reference,
+      created_at: new Date().toISOString()
+    }));
 }
 
-// Home
+async function addPoints(telegramId, amount, type, description) {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error("Invalid reward amount.");
+  }
+
+  const user = await getUser(telegramId);
+  if (!user || user.is_blocked) throw new Error("User unavailable.");
+
+  const activity = await getOrCreateActivity(telegramId);
+  if (Number(activity.total_earned || 0) + amount > DAILY_MAX) {
+    throw new Error("আজকের 650 FP দৈনিক সীমা পূর্ণ হয়েছে।");
+  }
+
+  const newBalance = Number(user.balance || 0) + amount;
+
+  await db("users", supabase
+    .from("users")
+    .update({ balance: newBalance, updated_at: new Date().toISOString() })
+    .eq("telegram_id", String(telegramId)));
+
+  await db("daily_activity", supabase
+    .from("daily_activity")
+    .update({ total_earned: Number(activity.total_earned || 0) + amount })
+    .eq("telegram_id", String(telegramId))
+    .eq("activity_date", today()));
+
+  await addTransaction(telegramId, amount, type, description);
+
+  return { balance: newBalance, awarded: amount };
+}
+
 app.get("/", (req, res) => {
-  res.json({
-    status: "ok",
-    service: "FP Points Backend",
-    version: "1.3"
-  });
+  res.json({ status: "ok", service: "Found Points Backend", version: "fp-2.0" });
 });
 
-// Database health
-app.get("/health", async (req, res) => {
+app.get("/health/db", async (req, res) => {
   try {
-    const { error } = await supabase
-      .from("app_settings")
-      .select("key")
-      .limit(1);
-
-    if (error) {
-      return sendError(res, 500, error.message);
-    }
-
-    res.json({
-      status: "ok",
-      database: "connected"
-    });
-  } catch (error) {
-    sendError(res, 500, error.message);
+    await db("users", supabase.from("users").select("id").limit(1));
+    res.json({ status: "ok", database: "connected" });
+  } catch {
+    res.status(503).json({ status: "error", database: "unavailable" });
   }
 });
 
-// Register Telegram user
-app.post("/api/user/register", async (req, res) => {
+app.post("/api/register", async (req, res) => {
   try {
-    const {
-      telegram_id,
-      first_name,
-      last_name,
-      username,
-      photo_url
-    } = req.body;
+    const tg = verifyTelegramInitData(req.body?.initData);
+    if (!tg) return fail(res, 401, "Invalid Telegram initData.");
 
-    if (!telegram_id) {
-      return sendError(res, 400, "telegram_id is required");
-    }
-
-    const { data, error } = await supabase
-      .from("users")
-      .upsert({
-        telegram_id: String(telegram_id),
-        first_name: first_name || null,
-        last_name: last_name || null,
-        username: username || null,
-        photo_url: photo_url || null,
-        is_active: true,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: "telegram_id"
-      })
-      .select()
-      .single();
-
-    if (error) return sendError(res, 500, error.message);
-
-    res.json({
-      status: "ok",
-      message: "User registered successfully",
-      user: data
-    });
-  } catch (error) {
-    sendError(res, 500, error.message);
+    const user = await ensureUser(tg);
+    res.json({ success: true, user: {
+      telegram_id: user.telegram_id,
+      balance: user.balance,
+      display_name: user.display_name
+    }});
+  } catch (e) {
+    fail(res, 400, e.message);
   }
 });
 
-// Get user and balance
-app.get("/api/user/:telegram_id", async (req, res) => {
+app.get("/api/user", telegramAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from("users")
-      .select(
-        "telegram_id, first_name, last_name, username, photo_url, fp_points, is_blocked, is_active"
-      )
-      .eq("telegram_id", String(req.params.telegram_id))
-      .maybeSingle();
+    const user = await ensureUser(req.telegramUser);
+    const activity = await getOrCreateActivity(user.telegram_id);
 
-    if (error) return sendError(res, 500, error.message);
-    if (!data) return sendError(res, 404, "User not found");
+    const badges = await db("user_badges", supabase
+      .from("user_badges")
+      .select("badge_key, badges(name)")
+      .eq("telegram_id", String(user.telegram_id)));
 
     res.json({
-      status: "ok",
-      user: data
+      user: {
+        ...user,
+        todayEarned: Number(activity.total_earned || 0),
+        normal_earned_today: Number(activity.normal_earned || 0),
+        badges: (badges || []).map(b => ({
+          key: b.badge_key,
+          name: b.badges?.name || BADGES[b.badge_key]?.name || b.badge_key
+        }))
+      }
     });
-  } catch (error) {
-    sendError(res, 500, error.message);
+  } catch (e) {
+    fail(res, 400, e.message);
   }
 });
 
-// Normal earning: 200 FP maximum per Dhaka day
-app.post("/api/earning/claim", async (req, res) => {
+app.post("/api/earning/start", telegramAuth, async (req, res) => {
   try {
-    const { telegram_id, points } = req.body;
-
-    if (
-      !telegram_id ||
-      !Number.isInteger(points) ||
-      points <= 0 ||
-      points > NORMAL_MAX
-    ) {
-      return sendError(res, 400, "Invalid earning request");
-    }
-
-    const result = await getActiveUser(telegram_id);
-    if (result.error) return sendError(res, result.status, result.error);
-
-    const today = getDhakaDate();
-    const rewards = await getDailyRewards(telegram_id);
-
-    const currentNormal =
-      rewards.reward_date === today
-        ? Number(rewards.normal_earning_points || 0)
-        : 0;
-
-    if (currentNormal + points > NORMAL_MAX) {
-      return sendError(res, 400, "Daily normal earning limit reached");
-    }
-
-    const total = await getTodayTotal(telegram_id);
-    if (total + points > DAILY_MAX) {
-      return sendError(res, 400, "Daily total earning limit reached");
-    }
-
-    const newBalance = Number(result.user.fp_points || 0) + points;
-    const now = new Date().toISOString();
-
-    const { error: balanceError } = await supabase
-      .from("users")
-      .update({
-        fp_points: newBalance,
-        updated_at: now
-      })
-      .eq("telegram_id", String(telegram_id));
-
-    if (balanceError) return sendError(res, 500, balanceError.message);
-
-    const { error: rewardError } = await supabase
-      .from("daily_rewards")
-      .upsert({
-        telegram_id: String(telegram_id),
-        normal_earning_points: currentNormal + points,
-        reward_date: today,
-        updated_at: now
-      }, {
-        onConflict: "telegram_id"
-      });
-
-    if (rewardError) return sendError(res, 500, rewardError.message);
-
+    const user = await ensureUser(req.telegramUser);
+    const activity = await getOrCreateActivity(user.telegram_id);
     res.json({
-      status: "ok",
-      message: "Earning claimed",
-      added: points,
-      balance: newBalance,
-      normal_earning_today: currentNormal + points
+      success: true,
+      normalEarnedToday: Number(activity.normal_earned || 0),
+      remaining: Math.max(0, NORMAL_MAX - Number(activity.normal_earned || 0))
     });
-  } catch (error) {
-    sendError(res, 500, error.message);
+  } catch (e) {
+    fail(res, 400, e.message);
   }
 });
 
-// Daily Check-in status
-app.get("/api/checkin/status/:telegram_id", async (req, res) => {
+app.post("/api/earning/claim", telegramAuth, async (req, res) => {
   try {
-    const telegram_id = req.params.telegram_id;
-    const today = getDhakaDate();
+    const user = await ensureUser(req.telegramUser);
+    const activity = await getOrCreateActivity(user.telegram_id);
 
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .select("telegram_id")
-      .eq("telegram_id", String(telegram_id))
-      .maybeSingle();
-
-    if (userError) return sendError(res, 500, userError.message);
-    if (!user) return sendError(res, 404, "User not found");
-
-    const rewards = await getDailyRewards(telegram_id);
-
-    const claimed = Boolean(
-      rewards.checkin_claimed_at &&
-      getDhakaDate(new Date(rewards.checkin_claimed_at)) === today
-    );
-
-    res.json({
-      status: "ok",
-      claimed,
-      checkin_date: claimed ? today : null
-    });
-  } catch (error) {
-    sendError(res, 500, error.message);
-  }
-});
-
-// Daily Check-in: 5 FP once per day
-app.post("/api/checkin/claim", async (req, res) => {
-  try {
-    const { telegram_id } = req.body;
-
-    if (!telegram_id) {
-      return sendError(res, 400, "telegram_id is required");
+    if (Number(activity.normal_earned || 0) >= NORMAL_MAX) {
+      return fail(res, 400, "Normal earning daily limit reached.");
     }
 
-    const result = await getActiveUser(telegram_id);
-    if (result.error) return sendError(res, result.status, result.error);
-
-    const today = getDhakaDate();
-    const rewards = await getDailyRewards(telegram_id);
-
-    if (
-      rewards.checkin_claimed_at &&
-      getDhakaDate(new Date(rewards.checkin_claimed_at)) === today
-    ) {
-      return sendError(res, 400, "Daily Check-in already claimed today");
+    if (Number(activity.total_earned || 0) >= DAILY_MAX) {
+      return fail(res, 400, "Daily earning limit reached.");
     }
 
-    const total = await getTodayTotal(telegram_id);
-    if (total + CHECKIN_REWARD > DAILY_MAX) {
-      return sendError(res, 400, "Daily total earning limit reached");
-    }
+    const reward = Math.min(1, NORMAL_MAX - Number(activity.normal_earned || 0));
+    const result = await addPoints(user.telegram_id, reward, "normal_earning", "Normal earning");
 
-    const now = new Date().toISOString();
-    const newBalance = Number(result.user.fp_points || 0) + CHECKIN_REWARD;
-
-    const { error: balanceError } = await supabase
-      .from("users")
-      .update({
-        fp_points: newBalance,
-        updated_at: now
-      })
-      .eq("telegram_id", String(telegram_id));
-
-    if (balanceError) return sendError(res, 500, balanceError.message);
-
-    const { error: rewardError } = await supabase
-      .from("daily_rewards")
-      .upsert({
-        telegram_id: String(telegram_id),
-        checkin_claimed_at: now,
-        reward_date: today,
-        updated_at: now
-      }, {
-        onConflict: "telegram_id"
-      });
-
-    if (rewardError) return sendError(res, 500, rewardError.message);
-
-    res.json({
-      status: "ok",
-      message: "Daily Check-in successful",
-      added: CHECKIN_REWARD,
-      balance: newBalance,
-      checkin_date: today
-    });
-  } catch (error) {
-    sendError(res, 500, error.message);
-  }
-});
-
-// Get Daily Tasks status
-app.get("/api/tasks/status/:telegram_id", async (req, res) => {
-  try {
-    const telegram_id = req.params.telegram_id;
-    const result = await getActiveUser(telegram_id);
-
-    if (result.error) {
-      return sendError(res, result.status, result.error);
-    }
-
-    const today = getDhakaDate();
-    const activity = await getDailyActivity(telegram_id);
-    const rewards = await getDailyRewards(telegram_id);
-
-    const checkinClaimed = Boolean(
-      rewards.checkin_claimed_at &&
-      getDhakaDate(new Date(rewards.checkin_claimed_at)) === today
-    );
-
-    res.json({
-      status: "ok",
-      date: today,
-      checkin: {
-        reward: CHECKIN_REWARD,
-        claimed: checkinClaimed
-      },
-      daily_bonus: {
-        reward: DAILY_BONUS_REWARD,
-        claimed: activity.daily_bonus_date === today
-      },
-      daily_mission: {
-        reward: MISSION_REWARD,
-        required_ads: MAX_DAILY_ADS,
-        ads_completed: Number(activity.ad_count || 0),
-        claimed: activity.mission_date === today
-      },
-      earn_bonus: {
-        reward_per_ad: EARN_BONUS_REWARD,
-        ads_completed: Number(activity.ad_count || 0),
-        daily_limit: MAX_DAILY_ADS
-      },
-      total_points_today: await getTodayTotal(telegram_id),
-      daily_maximum: DAILY_MAX
-    });
-  } catch (error) {
-    sendError(res, 500, error.message);
-  }
-});
-
-// Daily Bonus: 5 FP once per day
-app.post("/api/tasks/daily-bonus", async (req, res) => {
-  try {
-    const { telegram_id } = req.body;
-
-    if (!telegram_id) {
-      return sendError(res, 400, "telegram_id is required");
-    }
-
-    const result = await getActiveUser(telegram_id);
-    if (result.error) return sendError(res, result.status, result.error);
-
-    const today = getDhakaDate();
-    const activity = await getDailyActivity(telegram_id);
-
-    if (activity.daily_bonus_date === today) {
-      return sendError(res, 400, "Daily Bonus already claimed today");
-    }
-
-    const total = await getTodayTotal(telegram_id);
-    if (total + DAILY_BONUS_REWARD > DAILY_MAX) {
-      return sendError(res, 400, "Daily total earning limit reached");
-    }
-
-    const now = new Date().toISOString();
-    const newBalance =
-      Number(result.user.fp_points || 0) + DAILY_BONUS_REWARD;
-
-    const { error: balanceError } = await supabase
-      .from("users")
-      .update({
-        fp_points: newBalance,
-        updated_at: now
-      })
-      .eq("telegram_id", String(telegram_id));
-
-    if (balanceError) return sendError(res, 500, balanceError.message);
-
-    const { error: activityError } = await supabase
+    await db("daily_activity", supabase
       .from("daily_activity")
       .update({
-        daily_bonus_date: today,
-        updated_at: now
+        normal_earned: Number(activity.normal_earned || 0) + reward
       })
-      .eq("telegram_id", String(telegram_id));
-
-    if (activityError) return sendError(res, 500, activityError.message);
+      .eq("telegram_id", String(user.telegram_id))
+      .eq("activity_date", today()));
 
     res.json({
-      status: "ok",
-      message: "Daily Bonus claimed",
-      added: DAILY_BONUS_REWARD,
-      balance: newBalance
+      success: true,
+      awarded: result.awarded,
+      balance: result.balance,
+      normalEarnedToday: Number(activity.normal_earned || 0) + reward
     });
-  } catch (error) {
-    sendError(res, 500, error.message);
+  } catch (e) {
+    fail(res, 400, e.message);
   }
 });
 
-// Record a completed rewarded ad and award Earn Bonus.
-// This endpoint must be connected to verified ad completion before production use.
-app.post("/api/tasks/ad-completed", async (req, res) => {
+app.post("/api/checkin", telegramAuth, async (req, res) => {
   try {
-    const { telegram_id } = req.body;
+    const user = await ensureUser(req.telegramUser);
+    const activity = await getOrCreateActivity(user.telegram_id);
 
-    if (!telegram_id) {
-      return sendError(res, 400, "telegram_id is required");
+    if (activity.checkin_claimed) {
+      return fail(res, 400, "আজকের চেক-ইন ইতিমধ্যে নেওয়া হয়েছে।");
     }
 
-    const result = await getActiveUser(telegram_id);
-    if (result.error) return sendError(res, result.status, result.error);
-
-    const today = getDhakaDate();
-    const activity = await getDailyActivity(telegram_id);
-    const currentAds = Number(activity.ad_count || 0);
-
-    if (currentAds >= MAX_DAILY_ADS) {
-      return sendError(res, 400, "Daily ad limit reached");
-    }
-
-    const nextAds = currentAds + 1;
-    const missionWillComplete =
-      nextAds >= MAX_DAILY_ADS &&
-      activity.mission_date !== today;
-
-    const rewardToAdd =
-      EARN_BONUS_REWARD +
-      (missionWillComplete ? MISSION_REWARD : 0);
-
-    const total = await getTodayTotal(telegram_id);
-    if (total + rewardToAdd > DAILY_MAX) {
-      return sendError(res, 400, "Daily total earning limit reached");
-    }
-
-    const now = new Date().toISOString();
-    const newBalance =
-      Number(result.user.fp_points || 0) + rewardToAdd;
-
-    const { error: balanceError } = await supabase
-      .from("users")
-      .update({
-        fp_points: newBalance,
-        updated_at: now
-      })
-      .eq("telegram_id", String(telegram_id));
-
-    if (balanceError) return sendError(res, 500, balanceError.message);
-
-    const activityUpdate = {
-      ad_count: nextAds,
-      ad_date: today,
-      updated_at: now
-    };
-
-    if (missionWillComplete) {
-      activityUpdate.mission_date = today;
-    }
-
-    const { error: activityError } = await supabase
+    await db("daily_activity", supabase
       .from("daily_activity")
-      .update(activityUpdate)
-      .eq("telegram_id", String(telegram_id));
+      .update({ checkin_claimed: true })
+      .eq("telegram_id", String(user.telegram_id))
+      .eq("activity_date", today()));
 
-    if (activityError) return sendError(res, 500, activityError.message);
+    const result = await addPoints(
+      user.telegram_id,
+      CHECKIN_REWARD,
+      "daily_checkin",
+      "Daily check-in"
+    );
 
-    res.json({
-      status: "ok",
-      message: "Ad activity recorded",
-      added: rewardToAdd,
-      earn_bonus: EARN_BONUS_REWARD,
-      mission_completed: missionWillComplete,
-      mission_reward: missionWillComplete ? MISSION_REWARD : 0,
-      ads_completed: nextAds,
-      ads_remaining: MAX_DAILY_ADS - nextAds,
-      balance: newBalance
-    });
-  } catch (error) {
-    sendError(res, 500, error.message);
+    res.json({ success: true, awarded: result.awarded, balance: result.balance });
+  } catch (e) {
+    fail(res, 400, e.message);
   }
 });
 
-// Start server
+app.get("/api/tasks/status", telegramAuth, async (req, res) => {
+  try {
+    const user = await ensureUser(req.telegramUser);
+    const activity = await getOrCreateActivity(user.telegram_id);
+
+    res.json({
+      checkinClaimed: Boolean(activity.checkin_claimed),
+      dailyTaskCompleted: Boolean(activity.daily_task_claimed),
+      normalEarnedToday: Number(activity.normal_earned || 0),
+      todayEarned: Number(activity.total_earned || 0),
+      dailyMaximum: DAILY_MAX
+    });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.get("/api/transactions", telegramAuth, async (req, res) => {
+  try {
+    const rows = await db("transactions", supabase
+      .from("transactions")
+      .select("*")
+      .eq("telegram_id", String(req.telegramUser.id))
+      .order("created_at", { ascending: false })
+      .limit(50));
+
+    res.json({ transactions: rows || [] });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.patch("/api/profile/display-name", telegramAuth, async (req, res) => {
+  try {
+    const displayName = String(req.body?.displayName || "").trim();
+
+    if (!displayName || displayName.length > 40) {
+      return fail(res, 400, "নাম ১ থেকে ৪০ অক্ষরের মধ্যে হতে হবে।");
+    }
+
+    await ensureUser(req.telegramUser);
+
+    const user = await db("users", supabase
+      .from("users")
+      .update({ display_name: displayName, updated_at: new Date().toISOString() })
+      .eq("telegram_id", String(req.telegramUser.id))
+      .select("*")
+      .single());
+
+    res.json({ success: true, user });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.get("/api/social-tasks", telegramAuth, async (req, res) => {
+  try {
+    const tasks = await db("social_tasks", supabase
+      .from("social_tasks")
+      .select("*")
+      .eq("enabled", true)
+      .order("created_at", { ascending: false }));
+
+    res.json({ tasks: tasks || [] });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
+  try {
+    const user = await ensureUser(req.telegramUser);
+    const taskId = String(req.body?.taskId || "");
+
+    const task = await db("social_tasks", supabase
+      .from("social_tasks")
+      .select("*")
+      .eq("id", taskId)
+      .eq("enabled", true)
+      .maybeSingle());
+
+    if (!task) return fail(res, 404, "Task not found.");
+
+    if (task.platform !== "telegram" || !task.channel_username) {
+      return fail(res, 400, "এই টাস্কের নির্ভরযোগ্য যাচাই সেটআপ করা হয়নি।");
+    }
+
+    const already = await db("social_task_claims", supabase
+      .from("social_task_claims")
+      .select("id")
+      .eq("task_id", taskId)
+      .eq("telegram_id", String(user.telegram_id))
+      .maybeSingle());
+
+    if (already) return fail(res, 400, "এই টাস্কের পুরস্কার আগেই নেওয়া হয়েছে।");
+
+    const url = "https://api.telegram.org/bot" + BOT_TOKEN +
+      "/getChatMember?chat_id=" + encodeURIComponent(task.channel_username) +
+      "&user_id=" + encodeURIComponent(String(user.telegram_id));
+
+    const check = await fetch(url);
+    const result = await check.json();
+
+    if (!result.ok) {
+      return fail(res, 400, "চ্যানেল সদস্যতা যাচাই করা যায়নি।");
+    }
+
+    const status = result.result?.status;
+    const member = ["creator", "administrator", "member"].includes(status) ||
+      (status === "restricted" && result.result?.is_member === true);
+
+    if (!member) return fail(res, 400, "পুরস্কারের আগে Telegram চ্যানেলে যোগ দিন।");
+
+    await db("social_task_claims", supabase
+      .from("social_task_claims")
+      .insert({
+        task_id: taskId,
+        telegram_id: String(user.telegram_id),
+        claimed_at: new Date().toISOString()
+      }));
+
+    const reward = Number(task.reward || 0);
+    if (!Number.isInteger(reward) || reward < 1) {
+      return fail(res, 400, "Invalid task reward.");
+    }
+
+    const resultPoints = await addPoints(
+      user.telegram_id,
+      reward,
+      "social_task",
+      "Social task: " + String(task.title || taskId)
+    );
+
+    res.json({ success: true, awarded: resultPoints.awarded, balance: resultPoints.balance });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.post("/api/shop/request", telegramAuth, async (req, res) => {
+  try {
+    const user = await ensureUser(req.telegramUser);
+    const badgeKey = String(req.body?.badge || "");
+    const badge = BADGES[badgeKey];
+
+    if (!badge) return fail(res, 400, "Unknown badge.");
+
+    const existing = await db("shop_requests", supabase
+      .from("shop_requests")
+      .select("id")
+      .eq("telegram_id", String(user.telegram_id))
+      .eq("badge_key", badgeKey)
+      .eq("status", "pending")
+      .maybeSingle());
+
+    if (existing) return fail(res, 400, "এই ব্যাজের অনুরোধ ইতিমধ্যে অপেক্ষমাণ।");
+
+    if (Number(user.balance || 0) < badge.price) {
+      return fail(res, 400, "পর্যাপ্ত FP Points নেই।");
+    }
+
+    const request = await db("shop_requests", supabase
+      .from("shop_requests")
+      .insert({
+        telegram_id: String(user.telegram_id),
+        badge_key: badgeKey,
+        price: badge.price,
+        status: "pending",
+        created_at: new Date().toISOString()
+      })
+      .select("*")
+      .single());
+
+    res.json({ success: true, request });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.get("/api/referral", telegramAuth, async (req, res) => {
+  try {
+    const user = await ensureUser(req.telegramUser);
+    const botInfoResponse = await fetch(
+      "https://api.telegram.org/bot" + BOT_TOKEN + "/getMe"
+    );
+    const botInfo = await botInfoResponse.json();
+
+    if (!botInfo.ok) return fail(res, 503, "Bot information unavailable.");
+
+    const rows = await db("referrals", supabase
+      .from("referrals")
+      .select("id")
+      .eq("referrer_telegram_id", String(user.telegram_id))
+      .eq("status", "confirmed"));
+
+    res.json({
+      link: `https://t.me/${botInfo.result.username}?start=${user.telegram_id}`,
+      successfulReferrals: (rows || []).length
+    });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.post("/api/withdrawals", telegramAuth, async (req, res) => {
+  try {
+    const user = await ensureUser(req.telegramUser);
+    const amount = Number(req.body?.amount);
+    const method = String(req.body?.method || "");
+    const account = String(req.body?.account || "").trim();
+
+    if (!Number.isInteger(amount) || amount < 20000) {
+      return fail(res, 400, "Minimum withdrawal is 20,000 FP.");
+    }
+
+    if (!["bKash", "Nagad", "Binance"].includes(method)) {
+      return fail(res, 400, "Unsupported withdrawal method.");
+    }
+
+    if (!account || account.length > 100) {
+      return fail(res, 400, "Invalid payout account.");
+    }
+
+    if (Number(user.balance || 0) < amount) {
+      return fail(res, 400, "পর্যাপ্ত ব্যালেন্স নেই।");
+    }
+
+    const updatedBalance = Number(user.balance) - amount;
+
+    await db("users", supabase
+      .from("users")
+      .update({ balance: updatedBalance })
+      .eq("telegram_id", String(user.telegram_id)));
+
+    const withdrawal = await db("withdrawals", supabase
+      .from("withdrawals")
+      .insert({
+        telegram_id: String(user.telegram_id),
+        amount,
+        method,
+        account,
+        status: "pending",
+        created_at: new Date().toISOString()
+      })
+      .select("*")
+      .single());
+
+    await addTransaction(user.telegram_id, -amount, "withdrawal_pending", "Withdrawal request", withdrawal.id);
+
+    res.json({ success: true, withdrawal, balance: updatedBalance });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.get("/api/withdrawals", telegramAuth, async (req, res) => {
+  try {
+    const rows = await db("withdrawals", supabase
+      .from("withdrawals")
+      .select("id, amount, method, status, created_at")
+      .eq("telegram_id", String(req.telegramUser.id))
+      .order("created_at", { ascending: false })
+      .limit(30));
+
+    res.json({ withdrawals: rows || [] });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+// Admin API: protect with both configured ID and password.
+app.get("/api/admin/users", adminAuth, async (req, res) => {
+  try {
+    const users = await db("users", supabase
+      .from("users")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(500));
+
+    res.json({ users: users || [] });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.patch("/api/admin/users/:id", adminAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const patch = {};
+
+    if (typeof req.body?.is_blocked === "boolean") patch.is_blocked = req.body.is_blocked;
+
+    if (typeof req.body?.display_name === "string") {
+      const name = req.body.display_name.trim();
+      if (!name || name.length > 40) return fail(res, 400, "Invalid display name.");
+      patch.display_name = name;
+    }
+
+    if (!Object.keys(patch).length) return fail(res, 400, "No valid changes.");
+
+    const user = await db("users", supabase
+      .from("users")
+      .update(patch)
+      .eq("telegram_id", id)
+      .select("*")
+      .single());
+
+    res.json({ success: true, user });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.post("/api/admin/users/:id/points", adminAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const amount = Number(req.body?.amount);
+    const reason = String(req.body?.reason || "").trim();
+
+    if (!Number.isInteger(amount) || amount === 0 || Math.abs(amount) > 1000000) {
+      return fail(res, 400, "Invalid points amount.");
+    }
+
+    if (!reason || reason.length > 200) return fail(res, 400, "A reason is required.");
+
+    const user = await getUser(id);
+    if (!user) return fail(res, 404, "User not found.");
+
+    const balance = Number(user.balance || 0) + amount;
+    if (balance < 0) return fail(res, 400, "Balance cannot be negative.");
+
+    await db("users", supabase
+      .from("users")
+      .update({ balance })
+      .eq("telegram_id", id));
+
+    await addTransaction(id, amount, "admin_adjustment", reason);
+
+    await db("admin_logs", supabase
+      .from("admin_logs")
+      .insert({
+        admin_telegram_id: ADMIN_TELEGRAM_ID,
+        target_telegram_id: id,
+        action: "points_adjustment",
+        details: { amount, reason },
+        created_at: new Date().toISOString()
+      }));
+
+    res.json({ success: true, balance });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.get("/api/admin/withdrawals", adminAuth, async (req, res) => {
+  try {
+    const rows = await db("withdrawals", supabase
+      .from("withdrawals")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(500));
+
+    res.json({ withdrawals: rows || [] });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.post("/api/admin/withdrawals/:id/review", adminAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const action = String(req.body?.action || "");
+
+    if (!["approve", "reject"].includes(action)) {
+      return fail(res, 400, "Action must be approve or reject.");
+    }
+
+    const withdrawal = await db("withdrawals", supabase
+      .from("withdrawals")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle());
+
+    if (!withdrawal) return fail(res, 404, "Withdrawal not found.");
+    if (withdrawal.status !== "pending") return fail(res, 400, "Already reviewed.");
+
+    if (action === "reject") {
+      const user = await getUser(withdrawal.telegram_id);
+      if (!user) return fail(res, 404, "User not found.");
+
+      await db("users", supabase
+        .from("users")
+        .update({ balance: Number(user.balance || 0) + Number(withdrawal.amount) })
+        .eq("telegram_id", String(withdrawal.telegram_id)));
+
+      await addTransaction(
+        withdrawal.telegram_id,
+        Number(withdrawal.amount),
+        "withdrawal_refund",
+        "Withdrawal rejected; points refunded",
+        id
+      );
+    }
+
+    await db("withdrawals", supabase
+      .from("withdrawals")
+      .update({
+        status: action === "approve" ? "approved" : "rejected",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: ADMIN_TELEGRAM_ID
+      })
+      .eq("id", id)
+      .eq("status", "pending"));
+
+    res.json({ success: true });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.get("/api/admin/shop-requests", adminAuth, async (req, res) => {
+  try {
+    const rows = await db("shop_requests", supabase
+      .from("shop_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(500));
+
+    res.json({ requests: rows || [] });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.post("/api/admin/shop-requests/:id/review", adminAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const action = String(req.body?.action || "");
+
+    if (!["approve", "reject"].includes(action)) {
+      return fail(res, 400, "Action must be approve or reject.");
+    }
+
+    const request = await db("shop_requests", supabase
+      .from("shop_requests")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle());
+
+    if (!request) return fail(res, 404, "Request not found.");
+    if (request.status !== "pending") return fail(res, 400, "Request already reviewed.");
+
+    if (action === "approve") {
+      const user = await getUser(request.telegram_id);
+      if (!user || Number(user.balance || 0) < Number(request.price)) {
+        return fail(res, 400, "User balance is insufficient.");
+      }
+
+      await db("users", supabase
+        .from("users")
+        .update({ balance: Number(user.balance) - Number(request.price) })
+        .eq("telegram_id", String(request.telegram_id)));
+
+      await db("user_badges", supabase
+        .from("user_badges")
+        .upsert({
+          telegram_id: String(request.telegram_id),
+          badge_key: request.badge_key,
+          created_at: new Date().toISOString()
+        }, { onConflict: "telegram_id,badge_key" }));
+
+      await addTransaction(
+        request.telegram_id,
+        -Number(request.price),
+        "badge_purchase",
+        "Badge purchase: " + request.badge_key,
+        id
+      );
+    }
+
+    await db("shop_requests", supabase
+      .from("shop_requests")
+      .update({
+        status: action === "approve" ? "approved" : "rejected",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: ADMIN_TELEGRAM_ID
+      })
+      .eq("id", id)
+      .eq("status", "pending"));
+
+    res.json({ success: true });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.get("/api/admin/social-tasks", adminAuth, async (req, res) => {
+  try {
+    const rows = await db("social_tasks", supabase
+      .from("social_tasks")
+      .select("*")
+      .order("created_at", { ascending: false }));
+
+    res.json({ tasks: rows || [] });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.post("/api/admin/social-tasks", adminAuth, async (req, res) => {
+  try {
+    const title = String(req.body?.title || "").trim();
+    const description = String(req.body?.description || "").trim();
+    const url = String(req.body?.url || "").trim();
+    const channelUsername = String(req.body?.channel_username || "").trim();
+    const reward = Number(req.body?.reward);
+
+    if (!title || title.length > 100) return fail(res, 400, "Invalid title.");
+    if (!Number.isInteger(reward) || reward < 1 || reward > DAILY_MAX) {
+      return fail(res, 400, "Invalid reward.");
+    }
+
+    const task = await db("social_tasks", supabase
+      .from("social_tasks")
+      .insert({
+        title,
+        description,
+        url,
+        platform: "telegram",
+        channel_username: channelUsername,
+        reward,
+        enabled: true,
+        created_at: new Date().toISOString()
+      })
+      .select("*")
+      .single());
+
+    res.json({ success: true, task });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.patch("/api/admin/social-tasks/:id", adminAuth, async (req, res) => {
+  try {
+    const patch = {};
+
+    if (typeof req.body?.enabled === "boolean") patch.enabled = req.body.enabled;
+    if (typeof req.body?.title === "string") patch.title = req.body.title.trim();
+    if (typeof req.body?.description === "string") patch.description = req.body.description.trim();
+
+    if (!Object.keys(patch).length) return fail(res, 400, "No changes provided.");
+
+    const task = await db("social_tasks", supabase
+      .from("social_tasks")
+      .update(patch)
+      .eq("id", String(req.params.id))
+      .select("*")
+      .single());
+
+    res.json({ success: true, task });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+app.get("/api/admin/stats", adminAuth, async (req, res) => {
+  try {
+    const users = await db("users", supabase.from("users").select("telegram_id,is_blocked"));
+    const withdrawals = await db("withdrawals", supabase.from("withdrawals").select("id,status"));
+    const shop = await db("shop_requests", supabase.from("shop_requests").select("id,status"));
+
+    res.json({
+      totalUsers: users.length,
+      activeUsers: users.filter(u => !u.is_blocked).length,
+      blockedUsers: users.filter(u => u.is_blocked).length,
+      pendingWithdrawals: withdrawals.filter(w => w.status === "pending").length,
+      pendingBadgeRequests: shop.filter(s => s.status === "pending").length
+    });
+  } catch (e) {
+    fail(res, 400, e.message);
+  }
+});
+
+// Do not expose any endpoint that awards ad points from a client-side claim.
+// AdsGram rewards must only be granted after a verified server-side callback.
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: "Internal server error." });
+});
+
 app.listen(PORT, () => {
-  console.log(`FP Points Backend running on port ${PORT}`);
+  console.log(`FP Points backend listening on port ${PORT}`);
 });
