@@ -1,327 +1,358 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FP Points</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f7fb;
-      color: #172033;
-      min-height: 100vh;
-    }
-    .app { max-width: 500px; margin: auto; padding: 20px; }
-    .header { text-align: center; padding: 25px 0; }
-    .logo {
-      width: 70px; height: 70px; border-radius: 50%;
-      background: #fff; display: flex; align-items: center;
-      justify-content: center; margin: auto; font-size: 24px;
-      font-weight: bold; box-shadow: 0 5px 20px rgba(0,0,0,.08);
-    }
-    h1 { margin-top: 12px; font-size: 25px; }
-    .subtitle { margin-top: 5px; color: #687386; font-size: 14px; }
-    .points-card {
-      background: #fff; border-radius: 20px; padding: 25px;
-      text-align: center; box-shadow: 0 8px 25px rgba(0,0,0,.07);
-      margin-top: 10px;
-    }
-    .points-label { color: #687386; font-size: 14px; }
-    .points {
-      font-size: 38px; font-weight: bold; margin: 8px 0;
-      overflow-wrap: anywhere;
-    }
-    .unit { font-size: 15px; color: #687386; }
-    .section {
-      background: #fff; border-radius: 18px; padding: 20px;
-      margin-top: 18px; box-shadow: 0 6px 20px rgba(0,0,0,.05);
-    }
-    .section h2 { font-size: 18px; margin-bottom: 8px; }
-    .section p { color: #687386; font-size: 14px; line-height: 1.5; }
-    .button {
-      width: 100%; border: none; border-radius: 14px; padding: 14px;
-      margin-top: 12px; font-size: 16px; font-weight: bold;
-      cursor: pointer; background: #172033; color: white;
-    }
-    .button:disabled { opacity: .5; cursor: not-allowed; }
-    .stop-button { background: #d94848; }
-    .status {
-      text-align: center; color: #687386; font-size: 13px;
-      line-height: 1.5; margin-top: 15px; overflow-wrap: anywhere;
-    }
-    .footer { text-align: center; color: #8993a4; font-size: 12px; padding: 25px 0; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FP Points</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f5f7fb;color:#172033;min-height:100vh}
+.app{max-width:500px;margin:auto;padding:20px}
+.header{text-align:center;padding:25px 0}
+.logo{width:70px;height:70px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;margin:auto;font-size:24px;font-weight:bold;box-shadow:0 5px 20px #00000014}
+h1{margin-top:12px;font-size:25px}
+.subtitle{margin-top:5px;color:#687386;font-size:14px}
+.points-card{background:#fff;border-radius:20px;padding:25px;text-align:center;box-shadow:0 8px 25px #00000012;margin-top:10px}
+.points-label{color:#687386;font-size:14px}
+.points{font-size:38px;font-weight:bold;margin:8px 0;overflow-wrap:anywhere}
+.unit{font-size:15px;color:#687386}
+.section{background:#fff;border-radius:18px;padding:20px;margin-top:18px;box-shadow:0 6px 20px #0000000d}
+.section h2{font-size:18px;margin-bottom:8px}
+.section p{color:#687386;font-size:14px;line-height:1.5}
+.button{width:100%;border:none;border-radius:14px;padding:14px;margin-top:12px;font-size:15px;font-weight:bold;cursor:pointer;background:#172033;color:#fff}
+.button:disabled{opacity:.5;cursor:not-allowed}
+.stop-button{background:#d94848}
+.task{border:1px solid #e7ebf2;border-radius:14px;padding:14px;margin-top:12px}
+.task h3{font-size:15px;margin-bottom:6px}
+.task p{font-size:13px}
+.task .button{margin-top:10px}
+.progress{height:8px;background:#e9edf5;border-radius:20px;overflow:hidden;margin-top:10px}
+.progress-bar{height:100%;width:0;background:#536dfe;transition:width .2s}
+.status{text-align:center;color:#687386;font-size:13px;line-height:1.5;margin-top:15px;overflow-wrap:anywhere}
+.footer{text-align:center;color:#8993a4;font-size:12px;padding:25px 0}
+</style>
 </head>
 <body>
-  <div class="app">
-    <div class="header">
-      <div class="logo">FP</div>
-      <h1>FP Points</h1>
-      <div class="subtitle">Earn points and enjoy rewards</div>
-    </div>
-
-    <div class="points-card">
-      <div class="points-label">Your Balance</div>
-      <div class="points" id="points">Loading...</div>
-      <div class="unit">FP Points</div>
-    </div>
-
-    <div class="section">
-      <h2>Normal Earning</h2>
-      <p>Earn 1 FP every 6 seconds. Daily limit: 200 FP.</p>
-      <button class="button" id="startButton" onclick="startEarning()" disabled>Start Earning</button>
-      <button class="button stop-button" id="stopButton" onclick="stopEarning()" disabled>Stop</button>
-      <p id="earningStatus" class="status">Connecting...</p>
-    </div>
-
-    <div class="section">
-      <h2>Daily Check-in</h2>
-      <p>Claim 10 FP once per day.</p>
-      <button class="button" id="checkinButton" onclick="dailyCheckin()" disabled>Checking status...</button>
-      <p id="checkinStatus" class="status">Checking today's reward...</p>
-    </div>
-
-    <div id="status" class="status">Connecting to server...</div>
-    <div class="footer">FP Points</div>
+<div class="app">
+  <div class="header">
+    <div class="logo">FP</div>
+    <h1>FP Points</h1>
+    <div class="subtitle">Earn points and enjoy rewards</div>
   </div>
 
-  <script>
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
+  <div class="points-card">
+    <div class="points-label">Your Balance</div>
+    <div class="points" id="points">Loading...</div>
+    <div class="unit">FP Points</div>
+  </div>
 
-    const API_URL = "https://fp-points-backend.onrender.com";
-    const telegramUser = tg.initDataUnsafe?.user;
+  <div class="section">
+    <h2>Normal Earning</h2>
+    <p>Earn 1 FP every 6 seconds. Daily limit: 200 FP.</p>
+    <button class="button" id="startButton" onclick="startEarning()" disabled>Start Earning</button>
+    <button class="button stop-button" id="stopButton" onclick="stopEarning()" disabled>Stop</button>
+    <p id="earningStatus" class="status">Connecting...</p>
+  </div>
 
-    let userReady = false;
-    let isEarning = false;
-    let earningTimer = null;
-    let claimInProgress = false;
-    let checkinInProgress = false;
+  <div class="section">
+    <h2>Daily Check-in</h2>
+    <p>Claim 5 FP once per day.</p>
+    <button class="button" id="checkinButton" onclick="dailyCheckin()" disabled>Checking status...</button>
+    <p id="checkinStatus" class="status">Checking today's reward...</p>
+  </div>
 
-    const pointsElement = document.getElementById("points");
-    const statusElement = document.getElementById("status");
-    const earningStatus = document.getElementById("earningStatus");
-    const checkinStatus = document.getElementById("checkinStatus");
-    const startButton = document.getElementById("startButton");
-    const stopButton = document.getElementById("stopButton");
-    const checkinButton = document.getElementById("checkinButton");
+  <div class="section">
+    <h2>Daily Tasks</h2>
+    <p>Complete daily activities to earn extra FP Points.</p>
 
-    function showBalance(balance) {
-      pointsElement.textContent = Number(balance || 0).toLocaleString();
+    <div class="task">
+      <h3>Daily Bonus</h3>
+      <p>Claim 5 FP once per day.</p>
+      <button class="button" id="bonusButton" onclick="claimDailyBonus()" disabled>Loading...</button>
+      <p id="bonusStatus" class="status">Checking bonus status...</p>
+    </div>
+
+    <div class="task">
+      <h3>Earn Bonus</h3>
+      <p>Earn 15 FP per completed rewarded ad. Maximum 20 ads per day.</p>
+      <p id="adStatus" class="status">Checking ad progress...</p>
+      <p>Rewarded-ad integration is not enabled yet.</p>
+      <button class="button" disabled>Ads Coming Soon</button>
+    </div>
+
+    <div class="task">
+      <h3>Daily Mission</h3>
+      <p>Complete 20 rewarded ads to earn an extra 5 FP.</p>
+      <div class="progress">
+        <div class="progress-bar" id="missionBar"></div>
+      </div>
+      <p id="missionStatus" class="status">Checking mission progress...</p>
+    </div>
+
+    <p id="tasksStatus" class="status">Loading daily tasks...</p>
+    <button class="button" onclick="refreshTasks()" id="refreshTasksButton" disabled>Refresh Tasks</button>
+  </div>
+
+  <div id="status" class="status">Connecting to server...</div>
+  <div class="footer">FP Points</div>
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+const API_URL = "https://fp-points-backend.onrender.com";
+const telegramUser = tg.initDataUnsafe?.user;
+
+let userReady = false;
+let isEarning = false;
+let earningTimer = null;
+let claimInProgress = false;
+let checkinInProgress = false;
+let bonusInProgress = false;
+let tasksLoading = false;
+
+const $ = id => document.getElementById(id);
+
+function showBalance(balance) {
+  $("points").textContent = Number(balance || 0).toLocaleString();
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(API_URL + path, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
     }
+  });
+  const result = await response.json();
+  if (!response.ok || result.status !== "ok") {
+    throw new Error(result.message || "Request failed");
+  }
+  return result;
+}
 
-    function setCheckinClaimed() {
-      checkinButton.textContent = "Claimed Today";
-      checkinButton.disabled = true;
-      checkinStatus.textContent = "Today's 10 FP already claimed.";
+async function loadUserBalance() {
+  const result = await api(`/api/user/${telegramUser.id}`);
+  if (result.user.is_blocked || !result.user.is_active) {
+    throw new Error("Your account is blocked or inactive.");
+  }
+  showBalance(result.user.fp_points);
+}
+
+function setCheckinClaimed() {
+  $("checkinButton").textContent = "Claimed Today";
+  $("checkinButton").disabled = true;
+  $("checkinStatus").textContent = "Today's 5 FP already claimed.";
+}
+
+function setCheckinAvailable() {
+  $("checkinButton").textContent = "Claim 5 FP";
+  $("checkinButton").disabled = !userReady;
+  $("checkinStatus").textContent = "You can claim your daily 5 FP.";
+}
+
+async function refreshCheckinStatus() {
+  try {
+    const result = await api(`/api/checkin/status/${telegramUser.id}`);
+    if (result.claimed) setCheckinClaimed();
+    else setCheckinAvailable();
+  } catch (error) {
+    $("checkinButton").textContent = "Try Again";
+    $("checkinButton").disabled = true;
+    $("checkinStatus").textContent = error.message;
+  }
+}
+
+async function connectUser() {
+  if (!telegramUser) {
+    $("points").textContent = "—";
+    $("status").textContent = "Please open FP Points from Telegram.";
+    $("earningStatus").textContent = "Telegram connection required.";
+    $("checkinStatus").textContent = "Telegram connection required.";
+    $("bonusStatus").textContent = "Telegram connection required.";
+    $("checkinButton").textContent = "Open in Telegram";
+    return;
+  }
+
+  try {
+    const result = await api("/api/user/register", {
+      method: "POST",
+      body: JSON.stringify({
+        telegram_id: telegramUser.id,
+        first_name: telegramUser.first_name || "",
+        last_name: telegramUser.last_name || "",
+        username: telegramUser.username || "",
+        photo_url: telegramUser.photo_url || ""
+      })
+    });
+
+    await loadUserBalance();
+    userReady = true;
+    $("startButton").disabled = false;
+    $("refreshTasksButton").disabled = false;
+    $("status").textContent = "Connected successfully.";
+    $("earningStatus").textContent = "Ready to earn FP Points.";
+
+    await Promise.all([refreshCheckinStatus(), refreshTasks()]);
+  } catch (error) {
+    $("status").textContent = "Connection failed: " + error.message;
+    $("earningStatus").textContent = "Please reload the app and try again.";
+    $("checkinStatus").textContent = "Unable to connect to the server.";
+    $("checkinButton").textContent = "Unavailable";
+    $("checkinButton").disabled = true;
+    $("bonusButton").textContent = "Unavailable";
+    $("bonusButton").disabled = true;
+  }
+}
+
+function startEarning() {
+  if (!userReady || isEarning || claimInProgress) return;
+  isEarning = true;
+  $("startButton").disabled = true;
+  $("stopButton").disabled = false;
+  $("earningStatus").textContent = "Earning started. 1 FP every 6 seconds.";
+  earningTimer = setInterval(claimOnePoint, 6000);
+}
+
+function stopEarning() {
+  isEarning = false;
+  if (earningTimer !== null) {
+    clearInterval(earningTimer);
+    earningTimer = null;
+  }
+  $("startButton").disabled = !userReady;
+  $("stopButton").disabled = true;
+  if ($("earningStatus").textContent === "Earning started. 1 FP every 6 seconds.") {
+    $("earningStatus").textContent = "Earning stopped.";
+  }
+}
+
+async function claimOnePoint() {
+  if (!isEarning || claimInProgress) return;
+  claimInProgress = true;
+  try {
+    const result = await api("/api/earning/claim", {
+      method: "POST",
+      body: JSON.stringify({telegram_id: telegramUser.id, points: 1})
+    });
+    showBalance(result.balance);
+    $("earningStatus").textContent =
+      `Today: ${result.normal_earning_today}/200 FP`;
+
+    if (result.normal_earning_today >= 200) {
+      stopEarning();
+      $("earningStatus").textContent = "Daily normal earning limit reached.";
     }
+  } catch (error) {
+    stopEarning();
+    $("earningStatus").textContent = error.message;
+  } finally {
+    claimInProgress = false;
+  }
+}
 
-    function setCheckinAvailable() {
-      checkinButton.textContent = "Claim 10 FP";
-      checkinButton.disabled = !userReady;
-      checkinStatus.textContent = "You can claim your daily 10 FP.";
+async function dailyCheckin() {
+  if (!userReady || checkinInProgress || $("checkinButton").disabled) return;
+  checkinInProgress = true;
+  $("checkinButton").disabled = true;
+  $("checkinButton").textContent = "Claiming...";
+
+  try {
+    const result = await api("/api/checkin/claim", {
+      method: "POST",
+      body: JSON.stringify({telegram_id: telegramUser.id})
+    });
+    showBalance(result.balance);
+    setCheckinClaimed();
+    $("checkinStatus").textContent = "Success! 5 FP added today.";
+    await refreshTasks();
+  } catch (error) {
+    if (error.message.toLowerCase().includes("already claimed")) {
+      setCheckinClaimed();
+    } else {
+      $("checkinButton").textContent = "Claim 5 FP";
+      $("checkinButton").disabled = false;
+      $("checkinStatus").textContent = error.message;
     }
+  } finally {
+    checkinInProgress = false;
+  }
+}
 
-    async function refreshCheckinStatus() {
-      checkinButton.disabled = true;
-      checkinButton.textContent = "Checking status...";
+async function claimDailyBonus() {
+  if (!userReady || bonusInProgress || $("bonusButton").disabled) return;
+  bonusInProgress = true;
+  $("bonusButton").disabled = true;
+  $("bonusButton").textContent = "Claiming...";
 
-      try {
-        const response = await fetch(
-          `${API_URL}/api/checkin/status/${telegramUser.id}`
-        );
-        const result = await response.json();
+  try {
+    const result = await api("/api/tasks/daily-bonus", {
+      method: "POST",
+      body: JSON.stringify({telegram_id: telegramUser.id})
+    });
+    showBalance(result.balance);
+    $("bonusButton").textContent = "Claimed Today";
+    $("bonusStatus").textContent = "Success! 5 FP added today.";
+    await refreshTasks();
+  } catch (error) {
+    $("bonusButton").textContent = "Claim 5 FP";
+    $("bonusButton").disabled = false;
+    $("bonusStatus").textContent = error.message;
 
-        if (!response.ok || result.status !== "ok") {
-          throw new Error(result.message || "Could not check check-in status");
-        }
-
-        if (result.claimed) {
-          setCheckinClaimed();
-        } else {
-          setCheckinAvailable();
-        }
-      } catch (error) {
-        checkinButton.textContent = "Try Again";
-        checkinButton.disabled = true;
-        checkinStatus.textContent =
-          "Could not check reward status. Reload the app to try again.";
-      }
+    if (error.message.toLowerCase().includes("already claimed")) {
+      $("bonusButton").textContent = "Claimed Today";
+      $("bonusButton").disabled = true;
     }
+  } finally {
+    bonusInProgress = false;
+  }
+}
 
-    async function connectUser() {
-      if (!telegramUser) {
-        pointsElement.textContent = "—";
-        statusElement.textContent = "Please open FP Points from Telegram.";
-        earningStatus.textContent = "Telegram connection required.";
-        checkinStatus.textContent = "Telegram connection required.";
-        checkinButton.textContent = "Open in Telegram";
-        return;
-      }
+async function refreshTasks() {
+  if (!userReady || tasksLoading) return;
+  tasksLoading = true;
+  $("refreshTasksButton").disabled = true;
+  $("tasksStatus").textContent = "Refreshing daily tasks...";
 
-      try {
-        const response = await fetch(`${API_URL}/api/user/register`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            telegram_id: telegramUser.id,
-            first_name: telegramUser.first_name || "",
-            last_name: telegramUser.last_name || "",
-            username: telegramUser.username || "",
-            photo_url: telegramUser.photo_url || ""
-          })
-        });
+  try {
+    const result = await api(`/api/tasks/status/${telegramUser.id}`);
 
-        const result = await response.json();
+    $("bonusButton").textContent =
+      result.daily_bonus.claimed ? "Claimed Today" : "Claim 5 FP";
+    $("bonusButton").disabled = result.daily_bonus.claimed;
 
-        if (!response.ok || result.status !== "ok") {
-          throw new Error(result.message || "Registration failed");
-        }
+    $("bonusStatus").textContent = result.daily_bonus.claimed
+      ? "Today's bonus has already been claimed."
+      : "Your daily bonus is ready.";
 
-        await loadUserBalance();
+    const ads = Number(result.earn_bonus.ads_completed || 0);
+    const limit = Number(result.earn_bonus.daily_limit || 20);
+    $("adStatus").textContent = `Ads completed: ${ads}/${limit}`;
 
-        userReady = true;
-        startButton.disabled = false;
-        statusElement.textContent = "Connected successfully";
-        earningStatus.textContent = "Ready to earn FP Points.";
+    const missionAds = Number(result.daily_mission.ads_completed || 0);
+    $("missionBar").style.width =
+      Math.min(100, missionAds / 20 * 100) + "%";
 
-        await refreshCheckinStatus();
-      } catch (error) {
-        statusElement.textContent = "Connection failed: " + error.message;
-        earningStatus.textContent = "Please reload the app and try again.";
-        checkinStatus.textContent = "Unable to connect to the server.";
-        checkinButton.textContent = "Unavailable";
-        checkinButton.disabled = true;
-      }
-    }
+    $("missionStatus").textContent =
+      result.daily_mission.claimed
+        ? "Daily Mission completed! 5 FP awarded."
+        : `Progress: ${missionAds}/20 ads. Reward: 5 FP.`;
 
-    async function loadUserBalance() {
-      const response = await fetch(`${API_URL}/api/user/${telegramUser.id}`);
-      const result = await response.json();
+    $("tasksStatus").textContent =
+      `Today's recorded total: ${result.total_points_today}/${result.daily_maximum} FP.`;
+  } catch (error) {
+    $("tasksStatus").textContent = "Could not refresh tasks: " + error.message;
+  } finally {
+    tasksLoading = false;
+    $("refreshTasksButton").disabled = false;
+  }
+}
 
-      if (!response.ok || result.status !== "ok") {
-        throw new Error(result.message || "Could not load balance");
-      }
-
-      if (result.user.is_blocked || !result.user.is_active) {
-        throw new Error("Your account is blocked or inactive.");
-      }
-
-      showBalance(result.user.fp_points);
-    }
-
-    function startEarning() {
-      if (!userReady || isEarning || claimInProgress) return;
-
-      isEarning = true;
-      startButton.disabled = true;
-      stopButton.disabled = false;
-      earningStatus.textContent = "Earning started. 1 FP every 6 seconds.";
-      earningTimer = setInterval(claimOnePoint, 6000);
-    }
-
-    function stopEarning() {
-      isEarning = false;
-
-      if (earningTimer !== null) {
-        clearInterval(earningTimer);
-        earningTimer = null;
-      }
-
-      startButton.disabled = !userReady;
-      stopButton.disabled = true;
-      earningStatus.textContent = "Earning stopped.";
-    }
-
-    async function claimOnePoint() {
-      if (!isEarning || claimInProgress) return;
-
-      claimInProgress = true;
-
-      try {
-        const response = await fetch(`${API_URL}/api/earning/claim`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            telegram_id: telegramUser.id,
-            points: 1
-          })
-        });
-
-        const result = await response.json();
-
-        if (!response.ok || result.status !== "ok") {
-          stopEarning();
-          earningStatus.textContent =
-            result.message || "Earning could not continue.";
-          return;
-        }
-
-        showBalance(result.balance);
-        earningStatus.textContent =
-          `Today: ${result.normal_earning_today}/200 FP`;
-
-        if (result.normal_earning_today >= 200) {
-          stopEarning();
-          earningStatus.textContent =
-            "Daily normal earning limit reached: 200 FP.";
-        }
-      } catch (error) {
-        stopEarning();
-        earningStatus.textContent = "Server connection failed. Please try again.";
-      } finally {
-        claimInProgress = false;
-      }
-    }
-
-    async function dailyCheckin() {
-      if (!userReady || checkinInProgress || checkinButton.disabled) return;
-
-      checkinInProgress = true;
-      checkinButton.disabled = true;
-      checkinButton.textContent = "Claiming...";
-
-      try {
-        const response = await fetch(`${API_URL}/api/checkin/claim`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ telegram_id: telegramUser.id })
-        });
-
-        const result = await response.json();
-
-        if (!response.ok || result.status !== "ok") {
-          if (
-            response.status === 400 &&
-            (result.message || "").toLowerCase().includes("already claimed")
-          ) {
-            setCheckinClaimed();
-            return;
-          }
-
-          checkinStatus.textContent =
-            result.message || "Daily Check-in failed.";
-          checkinButton.textContent = "Claim 10 FP";
-          checkinButton.disabled = false;
-          return;
-        }
-
-        showBalance(result.balance);
-        setCheckinClaimed();
-        checkinStatus.textContent = "Success! 10 FP added to your balance today.";
-      } catch (error) {
-        checkinStatus.textContent = "Server connection failed. Please try again.";
-        checkinButton.textContent = "Try Again";
-        checkinButton.disabled = true;
-      } finally {
-        checkinInProgress = false;
-      }
-    }
-
-    connectUser();
-  </script>
+connectUser();
+</script>
 </body>
 </html>
