@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,110 +5,55 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FP Points</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       font-family: Arial, sans-serif;
       background: #f5f7fb;
       color: #172033;
       min-height: 100vh;
     }
-
     .app { max-width: 500px; margin: auto; padding: 20px; }
-
     .header { text-align: center; padding: 25px 0; }
-
     .logo {
-      width: 70px;
-      height: 70px;
-      border-radius: 50%;
-      background: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: auto;
-      font-size: 24px;
-      font-weight: bold;
-      box-shadow: 0 5px 20px rgba(0,0,0,.08);
+      width: 70px; height: 70px; border-radius: 50%;
+      background: #fff; display: flex; align-items: center;
+      justify-content: center; margin: auto; font-size: 24px;
+      font-weight: bold; box-shadow: 0 5px 20px rgba(0,0,0,.08);
     }
-
     h1 { margin-top: 12px; font-size: 25px; }
-
     .subtitle { margin-top: 5px; color: #687386; font-size: 14px; }
-
     .points-card {
-      background: #fff;
-      border-radius: 20px;
-      padding: 25px;
-      text-align: center;
-      box-shadow: 0 8px 25px rgba(0,0,0,.07);
+      background: #fff; border-radius: 20px; padding: 25px;
+      text-align: center; box-shadow: 0 8px 25px rgba(0,0,0,.07);
       margin-top: 10px;
     }
-
     .points-label { color: #687386; font-size: 14px; }
-
     .points {
-      font-size: 38px;
-      font-weight: bold;
-      margin: 8px 0;
+      font-size: 38px; font-weight: bold; margin: 8px 0;
       overflow-wrap: anywhere;
     }
-
     .unit { font-size: 15px; color: #687386; }
-
     .section {
-      background: #fff;
-      border-radius: 18px;
-      padding: 20px;
-      margin-top: 18px;
-      box-shadow: 0 6px 20px rgba(0,0,0,.05);
+      background: #fff; border-radius: 18px; padding: 20px;
+      margin-top: 18px; box-shadow: 0 6px 20px rgba(0,0,0,.05);
     }
-
     .section h2 { font-size: 18px; margin-bottom: 8px; }
-
-    .section p {
-      color: #687386;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-
+    .section p { color: #687386; font-size: 14px; line-height: 1.5; }
     .button {
-      width: 100%;
-      border: none;
-      border-radius: 14px;
-      padding: 14px;
-      margin-top: 12px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      background: #172033;
-      color: white;
+      width: 100%; border: none; border-radius: 14px; padding: 14px;
+      margin-top: 12px; font-size: 16px; font-weight: bold;
+      cursor: pointer; background: #172033; color: white;
     }
-
     .button:disabled { opacity: .5; cursor: not-allowed; }
-
     .stop-button { background: #d94848; }
-
     .status {
-      text-align: center;
-      color: #687386;
-      font-size: 13px;
-      line-height: 1.5;
-      margin-top: 15px;
-      overflow-wrap: anywhere;
+      text-align: center; color: #687386; font-size: 13px;
+      line-height: 1.5; margin-top: 15px; overflow-wrap: anywhere;
     }
-
-    .footer {
-      text-align: center;
-      color: #8993a4;
-      font-size: 12px;
-      padding: 25px 0;
-    }
+    .footer { text-align: center; color: #8993a4; font-size: 12px; padding: 25px 0; }
   </style>
 </head>
-
 <body>
   <div class="app">
     <div class="header">
@@ -127,32 +71,16 @@
     <div class="section">
       <h2>Normal Earning</h2>
       <p>Earn 1 FP every 6 seconds. Daily limit: 200 FP.</p>
-
-      <button class="button" id="startButton"
-        onclick="startEarning()" disabled>
-        Start Earning
-      </button>
-
-      <button class="button stop-button" id="stopButton"
-        onclick="stopEarning()" disabled>
-        Stop
-      </button>
-
+      <button class="button" id="startButton" onclick="startEarning()" disabled>Start Earning</button>
+      <button class="button stop-button" id="stopButton" onclick="stopEarning()" disabled>Stop</button>
       <p id="earningStatus" class="status">Connecting...</p>
     </div>
 
     <div class="section">
       <h2>Daily Check-in</h2>
       <p>Claim 10 FP once per day.</p>
-
-      <button class="button" id="checkinButton"
-        onclick="dailyCheckin()" disabled>
-        Claim 10 FP
-      </button>
-
-      <p id="checkinStatus" class="status">
-        Connect to claim your daily reward.
-      </p>
+      <button class="button" id="checkinButton" onclick="dailyCheckin()" disabled>Checking status...</button>
+      <p id="checkinStatus" class="status">Checking today's reward...</p>
     </div>
 
     <div id="status" class="status">Connecting to server...</div>
@@ -182,17 +110,55 @@
     const checkinButton = document.getElementById("checkinButton");
 
     function showBalance(balance) {
-      pointsElement.textContent =
-        Number(balance || 0).toLocaleString();
+      pointsElement.textContent = Number(balance || 0).toLocaleString();
+    }
+
+    function setCheckinClaimed() {
+      checkinButton.textContent = "Claimed Today";
+      checkinButton.disabled = true;
+      checkinStatus.textContent = "Today's 10 FP already claimed.";
+    }
+
+    function setCheckinAvailable() {
+      checkinButton.textContent = "Claim 10 FP";
+      checkinButton.disabled = !userReady;
+      checkinStatus.textContent = "You can claim your daily 10 FP.";
+    }
+
+    async function refreshCheckinStatus() {
+      checkinButton.disabled = true;
+      checkinButton.textContent = "Checking status...";
+
+      try {
+        const response = await fetch(
+          `${API_URL}/api/checkin/status/${telegramUser.id}`
+        );
+        const result = await response.json();
+
+        if (!response.ok || result.status !== "ok") {
+          throw new Error(result.message || "Could not check check-in status");
+        }
+
+        if (result.claimed) {
+          setCheckinClaimed();
+        } else {
+          setCheckinAvailable();
+        }
+      } catch (error) {
+        checkinButton.textContent = "Try Again";
+        checkinButton.disabled = true;
+        checkinStatus.textContent =
+          "Could not check reward status. Reload the app to try again.";
+      }
     }
 
     async function connectUser() {
       if (!telegramUser) {
         pointsElement.textContent = "—";
-        statusElement.textContent =
-          "Please open FP Points from Telegram.";
+        statusElement.textContent = "Please open FP Points from Telegram.";
         earningStatus.textContent = "Telegram connection required.";
         checkinStatus.textContent = "Telegram connection required.";
+        checkinButton.textContent = "Open in Telegram";
         return;
       }
 
@@ -219,24 +185,21 @@
 
         userReady = true;
         startButton.disabled = false;
-        checkinButton.disabled = false;
-
         statusElement.textContent = "Connected successfully";
         earningStatus.textContent = "Ready to earn FP Points.";
-        checkinStatus.textContent = "You can claim your daily 10 FP.";
 
+        await refreshCheckinStatus();
       } catch (error) {
         statusElement.textContent = "Connection failed: " + error.message;
         earningStatus.textContent = "Please reload the app and try again.";
         checkinStatus.textContent = "Unable to connect to the server.";
+        checkinButton.textContent = "Unavailable";
+        checkinButton.disabled = true;
       }
     }
 
     async function loadUserBalance() {
-      const response = await fetch(
-        `${API_URL}/api/user/${telegramUser.id}`
-      );
-
+      const response = await fetch(`${API_URL}/api/user/${telegramUser.id}`);
       const result = await response.json();
 
       if (!response.ok || result.status !== "ok") {
@@ -256,9 +219,7 @@
       isEarning = true;
       startButton.disabled = true;
       stopButton.disabled = false;
-      earningStatus.textContent =
-        "Earning started. 1 FP every 6 seconds.";
-
+      earningStatus.textContent = "Earning started. 1 FP every 6 seconds.";
       earningTimer = setInterval(claimOnePoint, 6000);
     }
 
@@ -310,15 +271,14 @@
         }
       } catch (error) {
         stopEarning();
-        earningStatus.textContent =
-          "Server connection failed. Please try again.";
+        earningStatus.textContent = "Server connection failed. Please try again.";
       } finally {
         claimInProgress = false;
       }
     }
 
     async function dailyCheckin() {
-      if (!userReady || checkinInProgress) return;
+      if (!userReady || checkinInProgress || checkinButton.disabled) return;
 
       checkinInProgress = true;
       checkinButton.disabled = true;
@@ -328,33 +288,34 @@
         const response = await fetch(`${API_URL}/api/checkin/claim`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            telegram_id: telegramUser.id
-          })
+          body: JSON.stringify({ telegram_id: telegramUser.id })
         });
 
         const result = await response.json();
 
         if (!response.ok || result.status !== "ok") {
+          if (
+            response.status === 400 &&
+            (result.message || "").toLowerCase().includes("already claimed")
+          ) {
+            setCheckinClaimed();
+            return;
+          }
+
           checkinStatus.textContent =
             result.message || "Daily Check-in failed.";
-
           checkinButton.textContent = "Claim 10 FP";
           checkinButton.disabled = false;
           return;
         }
 
         showBalance(result.balance);
-        checkinStatus.textContent =
-          "Success! 10 FP added to your balance today.";
-        checkinButton.textContent = "Claimed Today";
-        checkinButton.disabled = true;
-
+        setCheckinClaimed();
+        checkinStatus.textContent = "Success! 10 FP added to your balance today.";
       } catch (error) {
-        checkinStatus.textContent =
-          "Server connection failed. Please try again.";
-        checkinButton.textContent = "Claim 10 FP";
-        checkinButton.disabled = false;
+        checkinStatus.textContent = "Server connection failed. Please try again.";
+        checkinButton.textContent = "Try Again";
+        checkinButton.disabled = true;
       } finally {
         checkinInProgress = false;
       }
