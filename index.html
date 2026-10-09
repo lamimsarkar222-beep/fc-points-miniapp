@@ -1,358 +1,1086 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FP Points</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#f5f7fb;color:#172033;min-height:100vh}
-.app{max-width:500px;margin:auto;padding:20px}
-.header{text-align:center;padding:25px 0}
-.logo{width:70px;height:70px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;margin:auto;font-size:24px;font-weight:bold;box-shadow:0 5px 20px #00000014}
-h1{margin-top:12px;font-size:25px}
-.subtitle{margin-top:5px;color:#687386;font-size:14px}
-.points-card{background:#fff;border-radius:20px;padding:25px;text-align:center;box-shadow:0 8px 25px #00000012;margin-top:10px}
-.points-label{color:#687386;font-size:14px}
-.points{font-size:38px;font-weight:bold;margin:8px 0;overflow-wrap:anywhere}
-.unit{font-size:15px;color:#687386}
-.section{background:#fff;border-radius:18px;padding:20px;margin-top:18px;box-shadow:0 6px 20px #0000000d}
-.section h2{font-size:18px;margin-bottom:8px}
-.section p{color:#687386;font-size:14px;line-height:1.5}
-.button{width:100%;border:none;border-radius:14px;padding:14px;margin-top:12px;font-size:15px;font-weight:bold;cursor:pointer;background:#172033;color:#fff}
-.button:disabled{opacity:.5;cursor:not-allowed}
-.stop-button{background:#d94848}
-.task{border:1px solid #e7ebf2;border-radius:14px;padding:14px;margin-top:12px}
-.task h3{font-size:15px;margin-bottom:6px}
-.task p{font-size:13px}
-.task .button{margin-top:10px}
-.progress{height:8px;background:#e9edf5;border-radius:20px;overflow:hidden;margin-top:10px}
-.progress-bar{height:100%;width:0;background:#536dfe;transition:width .2s}
-.status{text-align:center;color:#687386;font-size:13px;line-height:1.5;margin-top:15px;overflow-wrap:anywhere}
-.footer{text-align:center;color:#8993a4;font-size:12px;padding:25px 0}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101827">
+  <title>FP Points</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    :root {
+      --bg: #101827;
+      --card: #1b2638;
+      --card2: #243249;
+      --text: #f4f7ff;
+      --muted: #a9b5ca;
+      --primary: #7c5cff;
+      --green: #24c78b;
+      --red: #ff647c;
+      --border: #344258;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      padding-bottom: 88px;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: 0;
+    }
+
+    .header {
+      padding: 20px 16px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      font-size: 23px;
+      font-weight: 800;
+    }
+
+    .brand span { color: #a995ff; }
+
+    .lang {
+      background: var(--card2);
+      color: white;
+      padding: 9px 12px;
+      border-radius: 10px;
+    }
+
+    .container {
+      max-width: 650px;
+      margin: auto;
+      padding: 0 14px;
+    }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 17px;
+      padding: 17px;
+      margin-bottom: 14px;
+    }
+
+    .balance {
+      background: linear-gradient(135deg, #5942d6, #342c82);
+      border: none;
+      padding: 23px 20px;
+    }
+
+    .muted { color: var(--muted); }
+
+    .balance-number {
+      font-size: 35px;
+      font-weight: 800;
+      margin: 10px 0;
+      overflow-wrap: anywhere;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 20px 2px 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .stat {
+      background: var(--card);
+      padding: 15px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 21px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      padding: 12px 15px;
+      border-radius: 11px;
+      background: var(--primary);
+      color: white;
+      font-weight: 700;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .btn.green { background: #138b66; }
+    .btn.secondary { background: var(--card2); }
+    .btn.danger { background: #9e3048; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .row .btn {
+      width: auto;
+      min-width: 95px;
+      margin-top: 0;
+    }
+
+    .item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 15px;
+      margin-bottom: 11px;
+    }
+
+    .item p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .profile-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .avatar {
+      width: 65px;
+      height: 65px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: var(--card2);
+    }
+
+    .input {
+      width: 100%;
+      background: #111c2b;
+      color: white;
+      border: 1px solid var(--border);
+      padding: 13px;
+      border-radius: 10px;
+      margin-top: 8px;
+      outline: none;
+    }
+
+    label {
+      display: block;
+      margin-top: 13px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      background: #172235;
+      border-top: 1px solid var(--border);
+      padding: 9px 4px calc(9px + env(safe-area-inset-bottom));
+      z-index: 10;
+    }
+
+    .nav-btn {
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 5px 1px;
+    }
+
+    .nav-btn .emoji {
+      display: block;
+      font-size: 20px;
+      margin-bottom: 5px;
+    }
+
+    .nav-btn.active { color: #b8a8ff; }
+
+    .notice {
+      display: none;
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      background: var(--card2);
+      line-height: 1.5;
+    }
+
+    .notice.show { display: block; }
+
+    .progress {
+      height: 8px;
+      background: #101827;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+
+    .progress div {
+      height: 100%;
+      background: var(--green);
+      width: 0%;
+      transition: width .2s;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 8px;
+      background: var(--card2);
+      font-size: 12px;
+      margin: 4px 3px 0 0;
+    }
+
+    .small { font-size: 12px; }
+
+    @media (min-width: 520px) {
+      .container { padding: 0 20px; }
+      .bottom-nav { left: calc(50% - 325px); right: calc(50% - 325px); }
+    }
+  </style>
 </head>
+
 <body>
-<div class="app">
-  <div class="header">
-    <div class="logo">FP</div>
-    <h1>FP Points</h1>
-    <div class="subtitle">Earn points and enjoy rewards</div>
-  </div>
+  <header class="header">
+    <div class="brand">FP <span>Points</span></div>
+    <button class="lang" id="langButton" onclick="toggleLanguage()">বাংলা / EN</button>
+  </header>
 
-  <div class="points-card">
-    <div class="points-label">Your Balance</div>
-    <div class="points" id="points">Loading...</div>
-    <div class="unit">FP Points</div>
-  </div>
+  <main class="container">
+    <div id="notice" class="notice"></div>
 
-  <div class="section">
-    <h2>Normal Earning</h2>
-    <p>Earn 1 FP every 6 seconds. Daily limit: 200 FP.</p>
-    <button class="button" id="startButton" onclick="startEarning()" disabled>Start Earning</button>
-    <button class="button stop-button" id="stopButton" onclick="stopEarning()" disabled>Stop</button>
-    <p id="earningStatus" class="status">Connecting...</p>
-  </div>
-
-  <div class="section">
-    <h2>Daily Check-in</h2>
-    <p>Claim 5 FP once per day.</p>
-    <button class="button" id="checkinButton" onclick="dailyCheckin()" disabled>Checking status...</button>
-    <p id="checkinStatus" class="status">Checking today's reward...</p>
-  </div>
-
-  <div class="section">
-    <h2>Daily Tasks</h2>
-    <p>Complete daily activities to earn extra FP Points.</p>
-
-    <div class="task">
-      <h3>Daily Bonus</h3>
-      <p>Claim 5 FP once per day.</p>
-      <button class="button" id="bonusButton" onclick="claimDailyBonus()" disabled>Loading...</button>
-      <p id="bonusStatus" class="status">Checking bonus status...</p>
-    </div>
-
-    <div class="task">
-      <h3>Earn Bonus</h3>
-      <p>Earn 15 FP per completed rewarded ad. Maximum 20 ads per day.</p>
-      <p id="adStatus" class="status">Checking ad progress...</p>
-      <p>Rewarded-ad integration is not enabled yet.</p>
-      <button class="button" disabled>Ads Coming Soon</button>
-    </div>
-
-    <div class="task">
-      <h3>Daily Mission</h3>
-      <p>Complete 20 rewarded ads to earn an extra 5 FP.</p>
-      <div class="progress">
-        <div class="progress-bar" id="missionBar"></div>
+    <!-- HOME -->
+    <section id="home" class="page active">
+      <div class="card balance">
+        <div class="muted" data-bn="তোমার মোট ব্যালেন্স" data-en="Your total balance">
+          তোমার মোট ব্যালেন্স
+        </div>
+        <div class="balance-number" id="balance">0 FP</div>
+        <div class="muted small" data-bn="দৈনিক সর্বোচ্চ সীমা 650 FP" data-en="Daily maximum 650 FP">
+          দৈনিক সর্বোচ্চ সীমা 650 FP
+        </div>
       </div>
-      <p id="missionStatus" class="status">Checking mission progress...</p>
-    </div>
 
-    <p id="tasksStatus" class="status">Loading daily tasks...</p>
-    <button class="button" onclick="refreshTasks()" id="refreshTasksButton" disabled>Refresh Tasks</button>
-  </div>
+      <div class="grid">
+        <div class="stat">
+          <span class="muted" data-bn="আজ অর্জন" data-en="Earned today">আজ অর্জন</span>
+          <strong id="todayEarned">0 FP</strong>
+        </div>
+        <div class="stat">
+          <span class="muted" data-bn="আজ বাকি" data-en="Remaining today">আজ বাকি</span>
+          <strong id="todayRemaining">650 FP</strong>
+        </div>
+      </div>
 
-  <div id="status" class="status">Connecting to server...</div>
-  <div class="footer">FP Points</div>
-</div>
+      <div class="section-title" data-bn="সাধারণ আয়" data-en="Normal Earning">সাধারণ আয়</div>
+      <div class="card">
+        <div class="row">
+          <div>
+            <strong data-bn="সময় অনুযায়ী আয়" data-en="Time-based earning">সময় অনুযায়ী আয়</strong>
+            <p class="muted small" data-bn="প্রতি ৬ সেকেন্ডে ১ FP" data-en="1 FP every 6 seconds">
+              প্রতি ৬ সেকেন্ডে ১ FP
+            </p>
+          </div>
+          <strong id="earningStatus">বন্ধ</strong>
+        </div>
 
-<script>
-const tg = window.Telegram.WebApp;
-tg.ready();
-tg.expand();
+        <div class="progress"><div id="earningProgress"></div></div>
+        <p class="muted small" id="earningInfo">আজ 0 / 200 FP</p>
 
-const API_URL = "https://fp-points-backend.onrender.com";
-const telegramUser = tg.initDataUnsafe?.user;
+        <button id="earningButton" class="btn green" onclick="toggleEarning()">
+          আয় শুরু করো
+        </button>
+      </div>
 
-let userReady = false;
-let isEarning = false;
-let earningTimer = null;
-let claimInProgress = false;
-let checkinInProgress = false;
-let bonusInProgress = false;
-let tasksLoading = false;
+      <div class="section-title" data-bn="দৈনিক পুরস্কার" data-en="Daily rewards">দৈনিক পুরস্কার</div>
 
-const $ = id => document.getElementById(id);
+      <div class="item">
+        <div class="row">
+          <div>
+            <strong data-bn="দৈনিক চেক-ইন" data-en="Daily check-in">দৈনিক চেক-ইন</strong>
+            <p data-bn="প্রতিদিন একবার 10 FP" data-en="10 FP once daily">প্রতিদিন একবার 10 FP</p>
+          </div>
+          <button id="checkinButton" class="btn" onclick="claimCheckin()">নাও +10</button>
+        </div>
+      </div>
 
-function showBalance(balance) {
-  $("points").textContent = Number(balance || 0).toLocaleString();
-}
+      <div class="item">
+        <div class="row">
+          <div>
+            <strong data-bn="দৈনিক টাস্ক" data-en="Daily task">দৈনিক টাস্ক</strong>
+            <p data-bn="দৈনিক লক্ষ্য পূরণে 20 FP" data-en="20 FP for completing the daily goal">
+              দৈনিক লক্ষ্য পূরণে 20 FP
+            </p>
+          </div>
+          <button class="btn" onclick="showPage('tasks')">দেখো</button>
+        </div>
+      </div>
 
-async function api(path, options = {}) {
-  const response = await fetch(API_URL + path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {})
+      <div class="section-title" data-bn="বোনাস" data-en="Bonuses">বোনাস</div>
+      <div class="item">
+        <strong>🎟️ Ticket — 200 FP</strong>
+        <p data-bn="৪টি যাচাইকৃত বিজ্ঞাপন × ৫০ FP" data-en="4 verified ads × 50 FP">
+          ৪টি যাচাইকৃত বিজ্ঞাপন × ৫০ FP
+        </p>
+        <button class="btn secondary" onclick="showPage('tasks')">টাস্ক দেখো</button>
+      </div>
+
+      <div class="item">
+        <strong>⚡ Boost — 100 FP</strong>
+        <p data-bn="৪টি যাচাইকৃত বিজ্ঞাপন × ২৫ FP" data-en="4 verified ads × 25 FP">
+          ৪টি যাচাইকৃত বিজ্ঞাপন × ২৫ FP
+        </p>
+        <button class="btn secondary" onclick="showPage('tasks')">টাস্ক দেখো</button>
+      </div>
+
+      <div class="item">
+        <strong>🎁 Personal Reward — 120 FP</strong>
+        <p data-bn="১২টি যাচাইকৃত বিজ্ঞাপন × ১০ FP" data-en="12 verified ads × 10 FP">
+          ১২টি যাচাইকৃত বিজ্ঞাপন × ১০ FP
+        </p>
+        <button class="btn secondary" onclick="showPage('tasks')">টাস্ক দেখো</button>
+      </div>
+    </section>
+
+    <!-- TASKS -->
+    <section id="tasks" class="page">
+      <div class="section-title" data-bn="টাস্ক ও বোনাস" data-en="Tasks and bonuses">
+        টাস্ক ও বোনাস
+      </div>
+
+      <div class="card">
+        <strong data-bn="দৈনিক লক্ষ্য" data-en="Daily goal">দৈনিক লক্ষ্য</strong>
+        <p class="muted" data-bn="দৈনিক টাস্ক সম্পন্ন করে 20 FP পাও" data-en="Complete the daily task to earn 20 FP">
+          দৈনিক টাস্ক সম্পন্ন করে 20 FP পাও
+        </p>
+        <div class="progress"><div id="taskProgress"></div></div>
+        <p id="taskStatus" class="muted small">সার্ভার থেকে টাস্কের অবস্থা লোড হচ্ছে...</p>
+      </div>
+
+      <div id="socialTasks">
+        <div class="item">
+          <strong data-bn="সোশ্যাল টাস্ক" data-en="Social tasks">সোশ্যাল টাস্ক</strong>
+          <p data-bn="যাচাইকৃত টাস্ক এখানে দেখানো হবে।" data-en="Verified tasks will appear here.">
+            যাচাইকৃত টাস্ক এখানে দেখানো হবে।
+          </p>
+        </div>
+      </div>
+
+      <div class="card">
+        <strong data-bn="বিজ্ঞাপন বোনাস" data-en="Ad bonuses">বিজ্ঞাপন বোনাস</strong>
+        <p class="muted" data-bn="বিজ্ঞাপন দেখা বাধ্যতামূলক নয়। যাচাইকৃত বিজ্ঞাপন বোনাস হিসেবে পয়েন্ট দিতে পারে।"
+          data-en="Ads are optional. Verified ads may provide bonus points.">
+          বিজ্ঞাপন দেখা বাধ্যতামূলক নয়। যাচাইকৃত বিজ্ঞাপন বোনাস হিসেবে পয়েন্ট দিতে পারে।
+        </p>
+        <p class="small muted">
+          বিজ্ঞাপন যাচাই সার্ভারে চালু না হওয়া পর্যন্ত কোনো বিজ্ঞাপন বোনাস দাবি করা যাবে না।
+        </p>
+      </div>
+    </section>
+
+    <!-- SHOP -->
+    <section id="shop" class="page">
+      <div class="section-title" data-bn="Badge Shop" data-en="Badge Shop">Badge Shop</div>
+      <p class="muted" data-bn="ক্রয়ের অনুরোধ অ্যাডমিন অনুমোদন করবেন।" data-en="Badge purchases require admin approval.">
+        ক্রয়ের অনুরোধ অ্যাডমিন অনুমোদন করবেন।
+      </p>
+
+      <div class="item">
+        <div class="row"><strong>🫐 Blueberry</strong><strong>5,000 FP</strong></div>
+        <p data-bn="Blueberry ব্যাজ" data-en="Blueberry badge">Blueberry ব্যাজ</p>
+        <button class="btn" onclick="requestBadge('blueberry')">অনুমোদনের অনুরোধ</button>
+      </div>
+
+      <div class="item">
+        <div class="row"><strong>🟢 Green Berry</strong><strong>10,000 FP</strong></div>
+        <p data-bn="Green Berry ব্যাজ" data-en="Green Berry badge">Green Berry ব্যাজ</p>
+        <button class="btn" onclick="requestBadge('green_berry')">অনুমোদনের অনুরোধ</button>
+      </div>
+
+      <div class="item">
+        <div class="row"><strong>☑️ Verified Blue Tick</strong><strong>15,000 FP</strong></div>
+        <p data-bn="Verified ব্যাজ" data-en="Verified badge">Verified ব্যাজ</p>
+        <button class="btn" onclick="requestBadge('blue_tick')">অনুমোদনের অনুরোধ</button>
+      </div>
+
+      <div class="item">
+        <div class="row"><strong>👑 Black VIP</strong><strong>25,000 FP</strong></div>
+        <p data-bn="সর্বোচ্চ স্তরের VIP ব্যাজ" data-en="Highest-tier VIP badge">সর্বোচ্চ স্তরের VIP ব্যাজ</p>
+        <button class="btn" onclick="requestBadge('black_vip')">অনুমোদনের অনুরোধ</button>
+      </div>
+
+      <div class="card">
+        <strong data-bn="VIP Exclusive Offers" data-en="VIP Exclusive Offers">VIP Exclusive Offers</strong>
+        <div id="vipOffers" class="muted small" style="margin-top:10px">
+          VIP অফার সার্ভার থেকে লোড হবে।
+        </div>
+      </div>
+    </section>
+
+    <!-- PROFILE -->
+    <section id="profile" class="page">
+      <div class="section-title" data-bn="আমার প্রোফাইল" data-en="My profile">আমার প্রোফাইল</div>
+
+      <div class="card">
+        <div class="profile-top">
+          <img id="profilePhoto" class="avatar" alt="Profile photo"
+            src="https://placehold.co/100x100/243249/ffffff?text=FP">
+          <div>
+            <strong id="profileName">Telegram User</strong>
+            <p id="profileUsername" class="muted small">@username</p>
+            <p id="profileBadges"></p>
+          </div>
+        </div>
+
+        <p class="muted small" style="margin-top:18px">Telegram ID: <span id="telegramId">—</span></p>
+        <p class="muted small">Balance: <strong id="profileBalance">0 FP</strong></p>
+
+        <label for="displayName" data-bn="প্রদর্শিত নাম" data-en="Display name">প্রদর্শিত নাম</label>
+        <input id="displayName" class="input" maxlength="40" placeholder="নাম লিখো">
+
+        <button class="btn" onclick="saveDisplayName()">নাম সংরক্ষণ</button>
+        <button class="btn secondary" onclick="loadProfile()">প্রোফাইল রিফ্রেশ</button>
+      </div>
+
+      <div class="card">
+        <strong data-bn="লেনদেনের ইতিহাস" data-en="Transaction history">লেনদেনের ইতিহাস</strong>
+        <div id="history" class="muted small" style="margin-top:12px">
+          ইতিহাস সার্ভার থেকে লোড হবে।
+        </div>
+      </div>
+    </section>
+
+    <!-- REFERRAL -->
+    <section id="referral" class="page">
+      <div class="section-title" data-bn="বন্ধুকে আমন্ত্রণ" data-en="Invite a friend">বন্ধুকে আমন্ত্রণ</div>
+
+      <div class="card">
+        <strong>প্রতি সফল আমন্ত্রণে 100 FP</strong>
+        <p class="muted" data-bn="শুধু বৈধভাবে যোগদান করা নতুন ব্যবহারকারীর জন্য পুরস্কার প্রযোজ্য।"
+          data-en="Rewards apply only to valid new referrals.">
+          শুধু বৈধভাবে যোগদান করা নতুন ব্যবহারকারীর জন্য পুরস্কার প্রযোজ্য।
+        </p>
+        <label for="referralLink">তোমার আমন্ত্রণ লিংক</label>
+        <input id="referralLink" class="input" readonly placeholder="লোড হচ্ছে...">
+        <button class="btn" onclick="copyReferral()">লিংক কপি করো</button>
+        <p id="referralStatus" class="muted small"></p>
+      </div>
+    </section>
+
+    <!-- WITHDRAW -->
+    <section id="withdraw" class="page">
+      <div class="section-title" data-bn="পয়েন্ট উত্তোলন" data-en="Withdraw points">পয়েন্ট উত্তোলন</div>
+
+      <div class="card">
+        <strong>20,000 FP = ৳150</strong>
+        <p class="muted" data-bn="ন্যূনতম উত্তোলন 20,000 FP। প্রতিটি অনুরোধ অ্যাডমিন যাচাই করবেন।"
+          data-en="Minimum withdrawal is 20,000 FP. Every request is reviewed by an admin.">
+          ন্যূনতম উত্তোলন 20,000 FP। প্রতিটি অনুরোধ অ্যাডমিন যাচাই করবেন।
+        </p>
+
+        <label for="withdrawMethod">পেমেন্ট পদ্ধতি</label>
+        <select id="withdrawMethod" class="input">
+          <option value="bKash">bKash</option>
+          <option value="Nagad">Nagad</option>
+          <option value="Binance">Binance</option>
+        </select>
+
+        <label for="withdrawAmount">পরিমাণ (FP)</label>
+        <input id="withdrawAmount" class="input" type="number" min="20000" step="1" placeholder="20000">
+
+        <label for="withdrawAccount">পেমেন্ট অ্যাকাউন্ট</label>
+        <input id="withdrawAccount" class="input" maxlength="100" placeholder="নম্বর বা অ্যাকাউন্ট আইডি">
+
+        <button class="btn" onclick="submitWithdrawal()">উত্তোলনের অনুরোধ</button>
+      </div>
+
+      <div class="card">
+        <strong data-bn="উত্তোলনের ইতিহাস" data-en="Withdrawal history">উত্তোলনের ইতিহাস</strong>
+        <div id="withdrawHistory" class="muted small" style="margin-top:12px">
+          উত্তোলনের ইতিহাস লোড হবে।
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="settings" class="page">
+      <div class="section-title" data-bn="সেটিংস" data-en="Settings">সেটিংস</div>
+
+      <div class="item">
+        <strong data-bn="ভাষা" data-en="Language">ভাষা</strong>
+        <button class="btn secondary" onclick="toggleLanguage()">বাংলা / English</button>
+      </div>
+
+      <div class="item">
+        <strong data-bn="About FP Points" data-en="About FP Points">About FP Points</strong>
+        <p data-bn="FP Points একটি পয়েন্টভিত্তিক মিনি অ্যাপ। পুরস্কার ও ব্যালেন্স সার্ভারের নিয়ম অনুযায়ী পরিচালিত হয়।"
+          data-en="FP Points is a points-based mini app. Rewards and balances follow server rules.">
+          FP Points একটি পয়েন্টভিত্তিক মিনি অ্যাপ। পুরস্কার ও ব্যালেন্স সার্ভারের নিয়ম অনুযায়ী পরিচালিত হয়।
+        </p>
+      </div>
+
+      <div class="item">
+        <strong data-bn="Support" data-en="Support">Support</strong>
+        <p class="muted" data-bn="সাপোর্ট লিংক এখনো সেট করা হয়নি।" data-en="The support link has not been configured yet.">
+          সাপোর্ট লিংক এখনো সেট করা হয়নি।
+        </p>
+        <button class="btn secondary" disabled>Support unavailable</button>
+      </div>
+
+      <div class="item">
+        <strong data-bn="নিরাপত্তা" data-en="Security">নিরাপত্তা</strong>
+        <p class="muted" data-bn="পয়েন্ট যোগ, উত্তোলন ও বিজ্ঞাপন পুরস্কার সার্ভার যাচাই ছাড়া গ্রহণ করা হবে না।"
+          data-en="Point changes, withdrawals, and ad rewards require server verification.">
+          পয়েন্ট যোগ, উত্তোলন ও বিজ্ঞাপন পুরস্কার সার্ভার যাচাই ছাড়া গ্রহণ করা হবে না।
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-page="home" onclick="showPage('home',this)">
+      <span class="emoji">🏠</span><span data-bn="হোম" data-en="Home">হোম</span>
+    </button>
+    <button class="nav-btn" data-page="tasks" onclick="showPage('tasks',this)">
+      <span class="emoji">🎯</span><span data-bn="টাস্ক" data-en="Tasks">টাস্ক</span>
+    </button>
+    <button class="nav-btn" data-page="shop" onclick="showPage('shop',this)">
+      <span class="emoji">🏅</span><span data-bn="শপ" data-en="Shop">শপ</span>
+    </button>
+    <button class="nav-btn" data-page="profile" onclick="showPage('profile',this)">
+      <span class="emoji">👤</span><span data-bn="প্রোফাইল" data-en="Profile">প্রোফাইল</span>
+    </button>
+    <button class="nav-btn" data-page="settings" onclick="showPage('settings',this)">
+      <span class="emoji">⚙️</span><span data-bn="সেটিংস" data-en="Settings">সেটিংস</span>
+    </button>
+  </nav>
+
+  <script>
+    // API URL: তোমার বর্তমান Render backend
+    const API_URL = "https://found-points-backend.onrender.com";
+
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
     }
-  });
-  const result = await response.json();
-  if (!response.ok || result.status !== "ok") {
-    throw new Error(result.message || "Request failed");
-  }
-  return result;
-}
 
-async function loadUserBalance() {
-  const result = await api(`/api/user/${telegramUser.id}`);
-  if (result.user.is_blocked || !result.user.is_active) {
-    throw new Error("Your account is blocked or inactive.");
-  }
-  showBalance(result.user.fp_points);
-}
+    let language = "bn";
+    let userData = null;
+    let earning = false;
+    let earningTimer = null;
+    let earningSeconds = 0;
 
-function setCheckinClaimed() {
-  $("checkinButton").textContent = "Claimed Today";
-  $("checkinButton").disabled = true;
-  $("checkinStatus").textContent = "Today's 5 FP already claimed.";
-}
+    const initData = tg?.initData || "";
+    const tgUser = tg?.initDataUnsafe?.user || null;
 
-function setCheckinAvailable() {
-  $("checkinButton").textContent = "Claim 5 FP";
-  $("checkinButton").disabled = !userReady;
-  $("checkinStatus").textContent = "You can claim your daily 5 FP.";
-}
-
-async function refreshCheckinStatus() {
-  try {
-    const result = await api(`/api/checkin/status/${telegramUser.id}`);
-    if (result.claimed) setCheckinClaimed();
-    else setCheckinAvailable();
-  } catch (error) {
-    $("checkinButton").textContent = "Try Again";
-    $("checkinButton").disabled = true;
-    $("checkinStatus").textContent = error.message;
-  }
-}
-
-async function connectUser() {
-  if (!telegramUser) {
-    $("points").textContent = "—";
-    $("status").textContent = "Please open FP Points from Telegram.";
-    $("earningStatus").textContent = "Telegram connection required.";
-    $("checkinStatus").textContent = "Telegram connection required.";
-    $("bonusStatus").textContent = "Telegram connection required.";
-    $("checkinButton").textContent = "Open in Telegram";
-    return;
-  }
-
-  try {
-    const result = await api("/api/user/register", {
-      method: "POST",
-      body: JSON.stringify({
-        telegram_id: telegramUser.id,
-        first_name: telegramUser.first_name || "",
-        last_name: telegramUser.last_name || "",
-        username: telegramUser.username || "",
-        photo_url: telegramUser.photo_url || ""
-      })
-    });
-
-    await loadUserBalance();
-    userReady = true;
-    $("startButton").disabled = false;
-    $("refreshTasksButton").disabled = false;
-    $("status").textContent = "Connected successfully.";
-    $("earningStatus").textContent = "Ready to earn FP Points.";
-
-    await Promise.all([refreshCheckinStatus(), refreshTasks()]);
-  } catch (error) {
-    $("status").textContent = "Connection failed: " + error.message;
-    $("earningStatus").textContent = "Please reload the app and try again.";
-    $("checkinStatus").textContent = "Unable to connect to the server.";
-    $("checkinButton").textContent = "Unavailable";
-    $("checkinButton").disabled = true;
-    $("bonusButton").textContent = "Unavailable";
-    $("bonusButton").disabled = true;
-  }
-}
-
-function startEarning() {
-  if (!userReady || isEarning || claimInProgress) return;
-  isEarning = true;
-  $("startButton").disabled = true;
-  $("stopButton").disabled = false;
-  $("earningStatus").textContent = "Earning started. 1 FP every 6 seconds.";
-  earningTimer = setInterval(claimOnePoint, 6000);
-}
-
-function stopEarning() {
-  isEarning = false;
-  if (earningTimer !== null) {
-    clearInterval(earningTimer);
-    earningTimer = null;
-  }
-  $("startButton").disabled = !userReady;
-  $("stopButton").disabled = true;
-  if ($("earningStatus").textContent === "Earning started. 1 FP every 6 seconds.") {
-    $("earningStatus").textContent = "Earning stopped.";
-  }
-}
-
-async function claimOnePoint() {
-  if (!isEarning || claimInProgress) return;
-  claimInProgress = true;
-  try {
-    const result = await api("/api/earning/claim", {
-      method: "POST",
-      body: JSON.stringify({telegram_id: telegramUser.id, points: 1})
-    });
-    showBalance(result.balance);
-    $("earningStatus").textContent =
-      `Today: ${result.normal_earning_today}/200 FP`;
-
-    if (result.normal_earning_today >= 200) {
-      stopEarning();
-      $("earningStatus").textContent = "Daily normal earning limit reached.";
+    function showNotice(message, type = "info") {
+      const el = document.getElementById("notice");
+      el.textContent = message;
+      el.style.border = type === "error"
+        ? "1px solid #ff647c"
+        : "1px solid #344258";
+      el.classList.add("show");
     }
-  } catch (error) {
-    stopEarning();
-    $("earningStatus").textContent = error.message;
-  } finally {
-    claimInProgress = false;
-  }
-}
 
-async function dailyCheckin() {
-  if (!userReady || checkinInProgress || $("checkinButton").disabled) return;
-  checkinInProgress = true;
-  $("checkinButton").disabled = true;
-  $("checkinButton").textContent = "Claiming...";
-
-  try {
-    const result = await api("/api/checkin/claim", {
-      method: "POST",
-      body: JSON.stringify({telegram_id: telegramUser.id})
-    });
-    showBalance(result.balance);
-    setCheckinClaimed();
-    $("checkinStatus").textContent = "Success! 5 FP added today.";
-    await refreshTasks();
-  } catch (error) {
-    if (error.message.toLowerCase().includes("already claimed")) {
-      setCheckinClaimed();
-    } else {
-      $("checkinButton").textContent = "Claim 5 FP";
-      $("checkinButton").disabled = false;
-      $("checkinStatus").textContent = error.message;
+    function hideNotice() {
+      document.getElementById("notice").classList.remove("show");
     }
-  } finally {
-    checkinInProgress = false;
-  }
-}
 
-async function claimDailyBonus() {
-  if (!userReady || bonusInProgress || $("bonusButton").disabled) return;
-  bonusInProgress = true;
-  $("bonusButton").disabled = true;
-  $("bonusButton").textContent = "Claiming...";
+    function showPage(id, button) {
+      document.querySelectorAll(".page").forEach(page => {
+        page.classList.toggle("active", page.id === id);
+      });
 
-  try {
-    const result = await api("/api/tasks/daily-bonus", {
-      method: "POST",
-      body: JSON.stringify({telegram_id: telegramUser.id})
-    });
-    showBalance(result.balance);
-    $("bonusButton").textContent = "Claimed Today";
-    $("bonusStatus").textContent = "Success! 5 FP added today.";
-    await refreshTasks();
-  } catch (error) {
-    $("bonusButton").textContent = "Claim 5 FP";
-    $("bonusButton").disabled = false;
-    $("bonusStatus").textContent = error.message;
+      document.querySelectorAll(".nav-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.page === id);
+      });
 
-    if (error.message.toLowerCase().includes("already claimed")) {
-      $("bonusButton").textContent = "Claimed Today";
-      $("bonusButton").disabled = true;
+      hideNotice();
+
+      if (id === "profile") loadProfile();
+      if (id === "tasks") loadTasks();
+      if (id === "referral") loadReferral();
+      if (id === "withdraw") loadWithdrawals();
+      if (id === "shop") loadVipOffers();
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  } finally {
-    bonusInProgress = false;
-  }
-}
 
-async function refreshTasks() {
-  if (!userReady || tasksLoading) return;
-  tasksLoading = true;
-  $("refreshTasksButton").disabled = true;
-  $("tasksStatus").textContent = "Refreshing daily tasks...";
+    function toggleLanguage() {
+      language = language === "bn" ? "en" : "bn";
+      document.documentElement.lang = language;
 
-  try {
-    const result = await api(`/api/tasks/status/${telegramUser.id}`);
+      document.querySelectorAll("[data-bn][data-en]").forEach(el => {
+        el.textContent = el.dataset[language];
+      });
 
-    $("bonusButton").textContent =
-      result.daily_bonus.claimed ? "Claimed Today" : "Claim 5 FP";
-    $("bonusButton").disabled = result.daily_bonus.claimed;
+      document.getElementById("langButton").textContent =
+        language === "bn" ? "বাংলা / EN" : "English / বাংলা";
+    }
 
-    $("bonusStatus").textContent = result.daily_bonus.claimed
-      ? "Today's bonus has already been claimed."
-      : "Your daily bonus is ready.";
+    async function api(path, options = {}) {
+      const headers = {
+        "Content-Type": "application/json",
+        "X-Telegram-Init-Data": initData,
+        ...(options.headers || {})
+      };
 
-    const ads = Number(result.earn_bonus.ads_completed || 0);
-    const limit = Number(result.earn_bonus.daily_limit || 20);
-    $("adStatus").textContent = `Ads completed: ${ads}/${limit}`;
+      const response = await fetch(API_URL + path, {
+        ...options,
+        headers
+      });
 
-    const missionAds = Number(result.daily_mission.ads_completed || 0);
-    $("missionBar").style.width =
-      Math.min(100, missionAds / 20 * 100) + "%";
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (_) {}
 
-    $("missionStatus").textContent =
-      result.daily_mission.claimed
-        ? "Daily Mission completed! 5 FP awarded."
-        : `Progress: ${missionAds}/20 ads. Reward: 5 FP.`;
+      if (!response.ok) {
+        throw new Error(data.error || data.message || "সার্ভার অনুরোধ ব্যর্থ হয়েছে।");
+      }
 
-    $("tasksStatus").textContent =
-      `Today's recorded total: ${result.total_points_today}/${result.daily_maximum} FP.`;
-  } catch (error) {
-    $("tasksStatus").textContent = "Could not refresh tasks: " + error.message;
-  } finally {
-    tasksLoading = false;
-    $("refreshTasksButton").disabled = false;
-  }
-}
+      return data;
+    }
 
-connectUser();
-</script>
+    function getBalance(data) {
+      return Number(data?.balance ?? data?.points ?? data?.user?.balance ?? 0);
+    }
+
+    function renderBalance(data) {
+      const balance = getBalance(data);
+      document.getElementById("balance").textContent = balance.toLocaleString() + " FP";
+      document.getElementById("profileBalance").textContent = balance.toLocaleString() + " FP";
+
+      const today = Number(data?.todayEarned ?? data?.today_earned ?? 0);
+      document.getElementById("todayEarned").textContent = today.toLocaleString() + " FP";
+      document.getElementById("todayRemaining").textContent =
+        Math.max(0, 650 - today).toLocaleString() + " FP";
+    }
+
+    async function loadInitialData() {
+      if (!tgUser || !initData) {
+        showNotice(
+          "অ্যাপটি Telegram-এর ভেতর থেকে খুলতে হবে। ব্রাউজারে খুললে Telegram পরিচয় যাচাই করা যাবে না।",
+          "error"
+        );
+        return;
+      }
+
+      try {
+        // Registration endpoint must validate Telegram initData on the backend.
+        await api("/api/register", {
+          method: "POST",
+          body: JSON.stringify({
+            initData,
+            referral: tg?.initDataUnsafe?.start_param || ""
+          })
+        });
+
+        const data = await api("/api/user");
+        userData = data.user || data;
+        renderBalance(userData);
+
+        document.getElementById("profileName").textContent =
+          userData.display_name || userData.first_name ||
+          tgUser.first_name || "Telegram User";
+
+        document.getElementById("profileUsername").textContent =
+          tgUser.username ? "@" + tgUser.username : "";
+
+        document.getElementById("telegramId").textContent = tgUser.id;
+        document.getElementById("displayName").value =
+          userData.display_name || tgUser.first_name || "";
+
+        if (tgUser.photo_url) {
+          document.getElementById("profilePhoto").src = tgUser.photo_url;
+        }
+
+        const earned = Number(userData.normal_earned_today || 0);
+        document.getElementById("earningInfo").textContent =
+          "আজ " + earned + " / 200 FP";
+        document.getElementById("earningProgress").style.width =
+          Math.min(100, earned / 200 * 100) + "%";
+
+        showNotice("অ্যাকাউন্ট লোড হয়েছে।");
+        setTimeout(hideNotice, 2500);
+
+        loadCheckinStatus();
+      } catch (error) {
+        showNotice(error.message + " Backend API ও Telegram যাচাই সেটআপ পরীক্ষা করো।", "error");
+      }
+    }
+
+    async function loadCheckinStatus() {
+      try {
+        const data = await api("/api/tasks/status");
+        if (data.checkinClaimed || data.checkedIn) {
+          const button = document.getElementById("checkinButton");
+          button.textContent = "আজ নেওয়া হয়েছে";
+          button.disabled = true;
+        }
+      } catch (_) {
+        // Status is not assumed successful when the server cannot confirm it.
+      }
+    }
+
+    async function claimCheckin() {
+      const button = document.getElementById("checkinButton");
+      button.disabled = true;
+
+      try {
+        const data = await api("/api/checkin", {
+          method: "POST",
+          body: JSON.stringify({})
+        });
+
+        if (data.success === false) throw new Error(data.error || "চেক-ইন নেওয়া যায়নি।");
+
+        showNotice("দৈনিক চেক-ইন অনুরোধ সম্পন্ন হয়েছে।");
+        await refreshUser();
+        button.textContent = "আজ নেওয়া হয়েছে";
+      } catch (error) {
+        showNotice(error.message, "error");
+        button.disabled = false;
+      }
+    }
+
+    async function refreshUser() {
+      const data = await api("/api/user");
+      userData = data.user || data;
+      renderBalance(userData);
+    }
+
+    async function toggleEarning() {
+      const button = document.getElementById("earningButton");
+
+      if (earning) {
+        earning = false;
+        clearInterval(earningTimer);
+        earningTimer = null;
+        button.textContent = language === "bn" ? "আয় শুরু করো" : "Start earning";
+        document.getElementById("earningStatus").textContent =
+          language === "bn" ? "বন্ধ" : "Stopped";
+        return;
+      }
+
+      if (!tgUser || !initData) {
+        showNotice("Telegram-এর ভেতর থেকে অ্যাপটি খোলো।", "error");
+        return;
+      }
+
+      try {
+        await api("/api/earning/start", {
+          method: "POST",
+          body: JSON.stringify({})
+        });
+
+        earning = true;
+        button.textContent = language === "bn" ? "আয় বন্ধ করো" : "Stop earning";
+        document.getElementById("earningStatus").textContent =
+          language === "bn" ? "চলছে" : "Running";
+
+        earningTimer = setInterval(async () => {
+          try {
+            const data = await api("/api/earning/claim", {
+              method: "POST",
+              body: JSON.stringify({})
+            });
+
+            if (data.success === false) throw new Error(data.error || "আয় বন্ধ হয়েছে।");
+
+            earningSeconds += 6;
+            await refreshUser();
+
+            if (Number(data.normalEarnedToday ?? 0) >= 200) {
+              earning = false;
+              clearInterval(earningTimer);
+              earningTimer = null;
+              button.textContent = language === "bn" ? "দৈনিক সীমা পূর্ণ" : "Daily limit reached";
+              button.disabled = true;
+            }
+          } catch (error) {
+            earning = false;
+            clearInterval(earningTimer);
+            earningTimer = null;
+            button.textContent = language === "bn" ? "আয় শুরু করো" : "Start earning";
+            document.getElementById("earningStatus").textContent =
+              language === "bn" ? "বন্ধ" : "Stopped";
+            showNotice(error.message, "error");
+          }
+        }, 6000);
+      } catch (error) {
+        showNotice(error.message, "error");
+      }
+    }
+
+    async function loadProfile() {
+      try {
+        const data = await api("/api/user");
+        userData = data.user || data;
+        renderBalance(userData);
+
+        document.getElementById("profileName").textContent =
+          userData.display_name || tgUser?.first_name || "Telegram User";
+
+        document.getElementById("displayName").value =
+          userData.display_name || tgUser?.first_name || "";
+
+        const badges = userData.badges || [];
+        document.getElementById("profileBadges").innerHTML =
+          badges.map(b => `<span class="badge">${escapeHtml(String(b.name || b))}</span>`).join("");
+
+        const history = await api("/api/transactions");
+        const rows = history.transactions || history.items || [];
+
+        document.getElementById("history").innerHTML = rows.length
+          ? rows.slice(0, 30).map(item =>
+              `<div class="item">
+                <strong>${escapeHtml(String(item.description || item.type || "Transaction"))}</strong>
+                <p>${escapeHtml(String(item.amount ?? ""))} FP · ${escapeHtml(String(item.created_at || ""))}</p>
+              </div>`
+            ).join("")
+          : "এখনো কোনো লেনদেন নেই।";
+      } catch (error) {
+        showNotice(error.message, "error");
+      }
+    }
+
+    async function saveDisplayName() {
+      const name = document.getElementById("displayName").value.trim();
+
+      if (!name || name.length > 40) {
+        showNotice("নাম ১ থেকে ৪০ অক্ষরের মধ্যে লিখো।", "error");
+        return;
+      }
+
+      try {
+        await api("/api/profile/display-name", {
+          method: "PATCH",
+          body: JSON.stringify({ displayName: name })
+        });
+
+        document.getElementById("profileName").textContent = name;
+        showNotice("নাম সংরক্ষণের অনুরোধ সম্পন্ন হয়েছে।");
+      } catch (error) {
+        showNotice(error.message, "error");
+      }
+    }
+
+    async function loadTasks() {
+      try {
+        const data = await api("/api/social-tasks");
+        const tasks = data.tasks || [];
+
+        document.getElementById("socialTasks").innerHTML = tasks.length
+          ? tasks.map(task => `
+              <div class="item">
+                <strong>${escapeHtml(String(task.title || "Task"))}</strong>
+                <p>${escapeHtml(String(task.description || ""))}</p>
+                <p>Reward: ${Number(task.reward || 0)} FP</p>
+                ${task.url ? `<a href="${escapeAttr(task.url)}" target="_blank" rel="noopener noreferrer" style="color:#b8a8ff">Join / Open</a>` : ""}
+                <button class="btn" onclick="claimSocialTask('${escapeAttr(String(task.id))}')">
+                  Verify and claim
+                </button>
+              </div>
+            `).join("")
+          : '<div class="item">এখনো কোনো সক্রিয় সোশ্যাল টাস্ক নেই।</div>';
+
+        const status = await api("/api/tasks/status");
+        const done = Number(status.dailyTaskCompleted || 0);
+        document.getElementById("taskStatus").textContent =
+          done ? "আজকের দৈনিক টাস্ক সম্পন্ন হয়েছে।" : "আজকের দৈনিক টাস্ক এখনো সম্পন্ন হয়নি।";
+        document.getElementById("taskProgress").style.width = done ? "100%" : "0%";
+      } catch (error) {
+        showNotice(error.message, "error");
+      }
+    }
+
+    async function claimSocialTask(taskId) {
+      try {
+        const data = await api("/api/social-tasks/claim", {
+          method: "POST",
+          body: JSON.stringify({ taskId })
+        });
+
+        if (data.success === false) throw new Error(data.error || "টাস্ক যাচাই করা যায়নি।");
+
+        showNotice("টাস্ক যাচাইয়ের অনুরোধ সম্পন্ন হয়েছে।");
+        await refreshUser();
+        await loadTasks();
+      } catch (error) {
+        showNotice(error.message, "error");
+      }
+    }
+
+    async function requestBadge(badge) {
+      try {
+        const data = await api("/api/shop/request", {
+          method: "POST",
+          body: JSON.stringify({ badge })
+        });
+
+        if (data.success === false) throw new Error(data.error || "অনুরোধ করা যায়নি।");
+        showNotice("ব্যাজ কেনার অনুরোধ পাঠানো হয়েছে। অ্যাডমিন অনুমোদনের পর ব্যাজ সক্রিয় হবে।");
+      } catch (error) {
+        showNotice(error.message, "error");
+      }
+    }
+
+    async function loadVipOffers() {
+      try {
+        const data = await api("/api/vip/offers");
+        const offers = data.offers || [];
+
+        document.getElementById("vipOffers").innerHTML = offers.length
+          ? offers.map(offer => `
+              <div class="item">
+                <strong>${escapeHtml(String(offer.title || "VIP Offer"))}</strong>
+                <p>${escapeHtml(String(offer.description || ""))}</p>
+                <button class="btn" onclick="claimVipOffer('${escapeAttr(String(offer.id))}')">
+                  Claim offer
+                </button>
+              </div>
+            `).join("")
+          : "এই মুহূর্তে তোমার জন্য কোনো সক্রিয় VIP অফার নেই।";
+      } catch (_) {
+        document.getElementById("vipOffers").textContent =
+          "VIP অফার লোড করা যায়নি। সার্ভার সেটআপ প্রয়োজন।";
+      }
+    }
+
+    async function claimVipOffer(offerId) {
+      try {
+        const data = await api("/api/vip/offers/claim", {
+          method: "POST",
+          body: JSON.stringify({ offerId })
+        });
+
+        if (data.success === false) throw new Error(data.error || "অফার নেওয়া যায়নি।");
+        showNotice("অফার দাবি করার অনুরোধ সম্পন্ন হয়েছে।");
+      } catch (error) {
+        showNotice(error.message, "error");
+      }
+    }
+
+    async function loadReferral() {
+      try {
+        const data = await api("/api/referral");
+        document.getElementById("referralLink").value = data.link || "";
+        document.getElementById("referralStatus").textContent =
+          "সফল আমন্ত্রণ: " + Number(data.successfulReferrals || 0);
+      } catch (error) {
+        showNotice(error.message, "error");
+      }
+    }
+
+    async function copyReferral() {
+      const link = document.getElementById("referralLink").value;
+      if (!link) {
+        showNotice("আমন্ত্রণ লিংক এখনো পাওয়া যায়নি।", "error");
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(link);
+        showNotice("লিংক কপি হয়েছে।");
+      } catch (_) {
+        document.getElementById("referralLink").select();
+        showNotice("লিংকটি নির্বাচন করা হয়েছে। কপি করো।");
+      }
+    }
+
+    async function submitWithdrawal() {
+      const amount = Number(document.getElementById("withdrawAmount").value);
+      const method = document.getElementById("withdrawMethod").value;
+      const account = document.getElementById("withdrawAccount").value.trim();
+
+      if (!Number.isInteger(amount) || amount < 20000) {
+        showNotice("ন্যূনতম 20,000 FP উত্তোলন করা যাবে।", "error");
+        return;
+      }
+
+      if (!account) {
+        showNotice("পেমেন্ট অ্যাকাউন্ট লিখো।", "error");
+        return;
+      }
+
+      try {
+        const data = await api("/api/withdrawals", {
+          method: "POST",
+          body: JSON.stringify({ amount, method, account })
+        });
+
+        if (data.success === false) throw new Error(data.error || "উত্তোলনের অনুরোধ ব্যর্থ হয়েছে।");
+
+        showNotice("উত্তোলনের অনুরোধ পাঠানো হয়েছে।");
+        document.getElementById("withdrawAmount").value = "";
+        document.getElementById("withdrawAccount").value = "";
+        await refreshUser();
+        await loadWithdrawals();
+      } catch (error) {
+        showNotice(error.message, "error");
+      }
+    }
+
+    async function loadWithdrawals() {
+      try {
+        const data = await api("/api/withdrawals");
+        const items = data.withdrawals || [];
+
+        document.getElementById("withdrawHistory").innerHTML = items.length
+          ? items.map(item => `
+              <div class="item">
+                <strong>${Number(item.amount || 0)} FP</strong>
+                <p>${escapeHtml(String(item.method || ""))} · ${escapeHtml(String(item.status || "pending"))}</p>
+                <p>${escapeHtml(String(item.created_at || ""))}</p>
+              </div>
+            `).join("")
+          : "এখনো কোনো উত্তোলনের অনুরোধ নেই।";
+      } catch (error) {
+        showNotice(error.message, "error");
+      }
+    }
+
+    function escapeHtml(value) {
+      return value.replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[char]);
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+
+    // Initial load
+    loadInitialData();
+  </script>
 </body>
 </html>
