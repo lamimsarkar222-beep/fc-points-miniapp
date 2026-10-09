@@ -1,0 +1,334 @@
+
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FP Points Admin</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f1f5f9;color:#172033;font-family:Arial,sans-serif;padding:16px}
+main{max-width:1000px;margin:auto}
+.card{background:white;padding:16px;margin:12px 0;border-radius:12px;box-shadow:0 2px 8px #0001}
+input,button{padding:11px;margin:4px 0;border:1px solid #cbd5e1;border-radius:7px;font-size:14px}
+input{max-width:100%;width:100%}
+button{background:#2563eb;color:white;border:0;cursor:pointer}
+button.red{background:#dc2626}
+button.green{background:#15803d}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat{background:#eff6ff;padding:14px;border-radius:8px}
+.item{border-top:1px solid #e2e8f0;padding:12px 0;overflow-wrap:anywhere}
+.small{color:#64748b;font-size:13px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+<h2>FP Points Admin Panel</h2>
+
+<section class="card" id="login">
+<h3>Admin Login</h3>
+<input id="adminId" placeholder="Admin Telegram ID">
+<input id="adminPassword" type="password" placeholder="Admin Password">
+<button onclick="login()">Login</button>
+<p id="loginMsg"></p>
+</section>
+
+<div id="panel" class="hidden">
+<section class="card">
+<button onclick="loadAll()">Refresh Data</button>
+<button class="red" onclick="logout()">Logout</button>
+<p id="status" class="small"></p>
+<div class="row" id="stats"></div>
+</section>
+
+<section class="card">
+<h3>Users</h3>
+<input id="userSearch" placeholder="Search by Telegram ID, name or username" oninput="renderUsers()">
+<div id="users"></div>
+</section>
+
+<section class="card">
+<h3>Withdrawal Requests</h3>
+<div id="withdrawals"></div>
+</section>
+
+<section class="card">
+<h3>Badge Purchase Requests</h3>
+<div id="shopRequests"></div>
+</section>
+
+<section class="card">
+<h3>Social Tasks</h3>
+<input id="taskTitle" placeholder="Task title">
+<input id="taskDescription" placeholder="Task description">
+<input id="taskUrl" placeholder="Telegram channel URL">
+<input id="channelUsername" placeholder="Channel username, e.g. @yourchannel">
+<input id="taskReward" type="number" placeholder="Reward in FP Points">
+<button onclick="createTask()">Create Task</button>
+<div id="tasks"></div>
+</section>
+</div>
+</main>
+
+<script>
+const API = "https://found-points-backend.onrender.com";
+let users = [];
+let admin = null;
+
+function headers(){
+ return {
+  "Content-Type":"application/json",
+  "X-Admin-Id":admin.id,
+  "X-Admin-Password":admin.password
+ };
+}
+
+async function request(path, options={}){
+ const response = await fetch(API+path,{
+  ...options,
+  headers:{...headers(),...(options.headers||{})}
+ });
+ const data = await response.json().catch(()=>({}));
+ if(!response.ok) throw new Error(data.error||"Request failed");
+ return data;
+}
+
+async function login(){
+ const id=document.getElementById("adminId").value.trim();
+ const password=document.getElementById("adminPassword").value;
+ if(!id||!password){document.getElementById("loginMsg").textContent="ID ও Password দিন।";return}
+ admin={id,password};
+ try{
+  await request("/api/admin/stats");
+  document.getElementById("login").classList.add("hidden");
+  document.getElementById("panel").classList.remove("hidden");
+  await loadAll();
+ }catch(e){
+  admin=null;
+  document.getElementById("loginMsg").textContent="Login ব্যর্থ: "+e.message;
+ }
+}
+
+function logout(){
+ admin=null;
+ users=[];
+ document.getElementById("panel").classList.add("hidden");
+ document.getElementById("login").classList.remove("hidden");
+ document.getElementById("adminPassword").value="";
+}
+
+function el(tag,text){
+ const n=document.createElement(tag);
+ n.textContent=text??"";
+ return n;
+}
+
+async function loadAll(){
+ document.getElementById("status").textContent="Loading...";
+ try{
+  const [s,u,w,b,t]=await Promise.all([
+   request("/api/admin/stats"),
+   request("/api/admin/users"),
+   request("/api/admin/withdrawals"),
+   request("/api/admin/shop-requests"),
+   request("/api/admin/social-tasks")
+  ]);
+  users=u.users||[];
+  showStats(s);
+  renderUsers();
+  renderWithdrawals(w.withdrawals||[]);
+  renderShop(b.requests||[]);
+  renderTasks(t.tasks||[]);
+  document.getElementById("status").textContent="Data loaded";
+ }catch(e){
+  document.getElementById("status").textContent="Error: "+e.message;
+ }
+}
+
+function showStats(s){
+ const box=document.getElementById("stats");
+ box.replaceChildren();
+ [
+  ["Total Users",s.totalUsers],
+  ["Active Users",s.activeUsers],
+  ["Blocked Users",s.blockedUsers],
+  ["Pending Withdrawals",s.pendingWithdrawals],
+  ["Pending Badge Requests",s.pendingBadgeRequests]
+ ].forEach(([label,value])=>{
+  const div=el("div");
+  div.className="stat";
+  div.append(el("div",label),el("h2",value));
+  box.append(div);
+ });
+}
+
+function renderUsers(){
+ const box=document.getElementById("users");
+ box.replaceChildren();
+ const q=document.getElementById("userSearch").value.toLowerCase();
+ users.filter(u=>[u.telegram_id,u.display_name,u.username,u.first_name]
+  .some(v=>String(v||"").toLowerCase().includes(q)))
+ .forEach(u=>{
+  const div=el("div");
+  div.className="item";
+  div.append(
+   el("b",u.display_name||u.first_name||"User"),
+   el("div","Telegram ID: "+u.telegram_id),
+   el("div","Username: "+(u.username?"@"+u.username:"None")),
+   el("div","Balance: "+(u.balance||0)+" FP"),
+   el("div",u.is_blocked?"Status: Blocked":"Status: Active")
+  );
+  const name=document.createElement("input");
+  name.placeholder="Change display name";
+  name.value=u.display_name||"";
+  const edit=el("button","Save Name");
+  edit.onclick=async()=>{
+   try{
+    await request("/api/admin/users/"+encodeURIComponent(u.telegram_id),{
+     method:"PATCH",body:JSON.stringify({display_name:name.value})
+    });
+    await loadAll();
+   }catch(e){alert(e.message)}
+  };
+  const amount=document.createElement("input");
+  amount.type="number";
+  amount.placeholder="Points: +100 or -100";
+  const reason=document.createElement("input");
+  reason.placeholder="Reason for adjustment";
+  const adjust=el("button","Adjust Points");
+  adjust.onclick=async()=>{
+   const n=Number(amount.value);
+   if(!Number.isInteger(n)||n===0||!reason.value.trim()){
+    alert("সঠিক Points ও Reason দিন।");return;
+   }
+   try{
+    await request("/api/admin/users/"+encodeURIComponent(u.telegram_id)+"/points",{
+     method:"POST",body:JSON.stringify({amount:n,reason:reason.value.trim()})
+    });
+    alert("Points updated");
+    await loadAll();
+   }catch(e){alert(e.message)}
+  };
+  const block=el("button",u.is_blocked?"Unblock User":"Block User");
+  block.className=u.is_blocked?"green":"red";
+  block.onclick=async()=>{
+   try{
+    await request("/api/admin/users/"+encodeURIComponent(u.telegram_id),{
+     method:"PATCH",body:JSON.stringify({is_blocked:!u.is_blocked})
+    });
+    await loadAll();
+   }catch(e){alert(e.message)}
+  };
+  div.append(name,edit,amount,reason,adjust,block);
+  box.append(div);
+ });
+}
+
+function renderWithdrawals(rows){
+ const box=document.getElementById("withdrawals");
+ box.replaceChildren();
+ rows.forEach(w=>{
+  const div=el("div");
+  div.className="item";
+  div.append(
+   el("b","Request: "+w.id),
+   el("div","User: "+w.telegram_id),
+   el("div","Amount: "+w.amount+" FP"),
+   el("div","Method: "+w.method),
+   el("div","Account: "+w.account),
+   el("div","Status: "+w.status)
+  );
+  if(w.status==="pending"){
+   ["approve","reject"].forEach(action=>{
+    const btn=el("button",action==="approve"?"Approve":"Reject");
+    btn.className=action==="approve"?"green":"red";
+    btn.onclick=()=>review("/api/admin/withdrawals/"+w.id+"/review",action);
+    div.append(btn);
+   });
+  }
+  box.append(div);
+ });
+ if(!rows.length)box.append(el("p","No withdrawal requests."));
+}
+
+function renderShop(rows){
+ const box=document.getElementById("shopRequests");
+ box.replaceChildren();
+ rows.forEach(r=>{
+  const div=el("div");
+  div.className="item";
+  div.append(
+   el("b","Request: "+r.id),
+   el("div","User: "+r.telegram_id),
+   el("div","Badge: "+r.badge_key),
+   el("div","Price: "+r.price+" FP"),
+   el("div","Status: "+r.status)
+  );
+  if(r.status==="pending"){
+   ["approve","reject"].forEach(action=>{
+    const btn=el("button",action==="approve"?"Approve":"Reject");
+    btn.className=action==="approve"?"green":"red";
+    btn.onclick=()=>review("/api/admin/shop-requests/"+r.id+"/review",action);
+    div.append(btn);
+   });
+  }
+  box.append(div);
+ });
+ if(!rows.length)box.append(el("p","No badge requests."));
+}
+
+async function review(path,action){
+ if(!confirm("আপনি কি "+action+" করতে চান?"))return;
+ try{
+  await request(path,{method:"POST",body:JSON.stringify({action})});
+  await loadAll();
+ }catch(e){alert(e.message)}
+}
+
+async function createTask(){
+ const payload={
+  title:document.getElementById("taskTitle").value.trim(),
+  description:document.getElementById("taskDescription").value.trim(),
+  url:document.getElementById("taskUrl").value.trim(),
+  channel_username:document.getElementById("channelUsername").value.trim(),
+  reward:Number(document.getElementById("taskReward").value)
+ };
+ try{
+  await request("/api/admin/social-tasks",{
+   method:"POST",body:JSON.stringify(payload)
+  });
+  alert("Task created");
+  await loadAll();
+ }catch(e){alert(e.message)}
+}
+
+function renderTasks(rows){
+ const box=document.getElementById("tasks");
+ box.replaceChildren();
+ rows.forEach(t=>{
+  const div=el("div");
+  div.className="item";
+  div.append(
+   el("b",t.title),
+   el("div","Reward: "+t.reward+" FP"),
+   el("div","Channel: "+(t.channel_username||"Not set")),
+   el("div","Status: "+(t.enabled?"Enabled":"Disabled"))
+  );
+  const btn=el("button",t.enabled?"Disable Task":"Enable Task");
+  btn.onclick=async()=>{
+   try{
+    await request("/api/admin/social-tasks/"+t.id,{
+     method:"PATCH",body:JSON.stringify({enabled:!t.enabled})
+    });
+    await loadAll();
+   }catch(e){alert(e.message)}
+  };
+  div.append(btn);
+  box.append(div);
+ });
+ if(!rows.length)box.append(el("p","No social tasks."));
+}
+</script>
+</body>
+</html>
