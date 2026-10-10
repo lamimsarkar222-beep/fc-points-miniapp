@@ -2,467 +2,388 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="theme-color" content="#101827">
-  <title>FC Points</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    :root{--bg:#101827;--panel:#192538;--panel2:#202f45;--text:#f5f7fb;--muted:#9cacc2;--accent:#62e6b5;--line:#304158;--red:#ff7777}
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font:15px Arial,sans-serif}
-    button,input,select{font:inherit}
-    button{cursor:pointer}
-    .app{max-width:540px;margin:auto;padding:18px 15px 90px}
-    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
-    .brand{font-size:22px;font-weight:800}.brand span{color:var(--accent)}
-    .pill{background:var(--panel2);border:1px solid var(--line);border-radius:30px;padding:8px 12px;font-size:12px}
-    .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:17px;margin-bottom:14px}
-    .balance{background:linear-gradient(135deg,#204d4b,#1c3049);border:1px solid #34776c}
-    .muted{color:var(--muted);font-size:13px}
-    .amount{font-size:36px;font-weight:800;margin:9px 0}
-    .section-title{font-size:18px;font-weight:750;margin:23px 0 12px}
-    .row{display:flex;align-items:center;justify-content:space-between;gap:12px}
-    .btn{border:0;border-radius:12px;padding:12px 15px;font-weight:700}
-    .primary{background:var(--accent);color:#10251f}
-    .secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
-    .danger{background:#542b36;color:#ffdfe2}
-    .btn:disabled{opacity:.45;cursor:not-allowed}
-    .full{width:100%;margin-top:10px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-    .tile{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:14px}
-    .tile strong{display:block;font-size:20px;margin:8px 0}
-    .icon{font-size:23px}
-    .progress{height:7px;border-radius:10px;background:#354258;overflow:hidden;margin:12px 0}
-    .progress span{height:100%;display:block;background:var(--accent);width:0}
-    .page{display:none}.page.active{display:block}
-    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;background:#121d2c;border-top:1px solid var(--line);padding:9px 4px calc(9px + env(safe-area-inset-bottom));z-index:5}
-    .nav button{flex:1;max-width:110px;border:0;background:none;color:var(--muted);padding:7px 2px;font-size:11px}
-    .nav button.active{color:var(--accent)}
-    .nav .ni{display:block;font-size:20px;margin-bottom:4px}
-    .field{width:100%;background:#111c2b;border:1px solid var(--line);border-radius:10px;color:white;padding:12px;margin-top:7px}
-    label{display:block;margin-top:14px;font-size:13px;color:var(--muted)}
-    .notice{padding:11px;border-radius:10px;background:#26374b;color:#dce7f7;font-size:13px;margin-top:10px;overflow-wrap:anywhere}
-    .item{padding:13px 0;border-bottom:1px solid var(--line)}
-    .item:last-child{border-bottom:0}
-    .hidden{display:none!important}
-    .status{color:var(--accent);font-size:12px}
-    .small{font-size:12px}
-    .profile-avatar{width:54px;height:54px;border-radius:50%;background:#263b50;display:grid;place-items:center;font-size:24px;overflow:hidden}
-    .profile-avatar img{width:100%;height:100%;object-fit:cover}
-    #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#e7fff5;color:#13271f;padding:12px 16px;border-radius:12px;z-index:10;display:none;max-width:90%;font-size:13px}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#101827">
+<title>FC Points</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#101827;--panel:#192538;--panel2:#202f45;--text:#f5f7fb;--muted:#9cacc2;--accent:#62e6b5;--line:#304158}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px Arial,sans-serif}
+button,input,select{font:inherit}button{cursor:pointer}
+.app{max-width:540px;margin:auto;padding:18px 15px 95px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.brand{font-size:22px;font-weight:800}.brand span{color:var(--accent)}
+.pill{background:var(--panel2);border:1px solid var(--line);border-radius:30px;padding:8px 12px;font-size:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:17px;margin-bottom:14px}
+.balance{background:linear-gradient(135deg,#204d4b,#1c3049);border-color:#34776c}
+.muted{color:var(--muted);font-size:13px}.amount{font-size:36px;font-weight:800;margin:9px 0}
+.section-title{font-size:18px;font-weight:750;margin:23px 0 12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.btn{border:0;border-radius:12px;padding:12px 15px;font-weight:700}
+.primary{background:var(--accent);color:#10251f}.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.danger{background:#542b36;color:#ffdfe2}.btn:disabled{opacity:.45;cursor:not-allowed}
+.full{width:100%;margin-top:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:14px}
+.tile strong{display:block;font-size:20px;margin:8px 0}.icon{font-size:23px}
+.progress{height:7px;border-radius:10px;background:#354258;overflow:hidden;margin:12px 0}
+.progress span{height:100%;display:block;background:var(--accent);width:0}
+.page{display:none}.page.active{display:block}
+.nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;background:#121d2c;border-top:1px solid var(--line);padding:9px 4px calc(9px + env(safe-area-inset-bottom));z-index:5}
+.nav button{flex:1;max-width:110px;border:0;background:none;color:var(--muted);padding:7px 2px;font-size:11px}
+.nav button.active{color:var(--accent)}.nav .ni{display:block;font-size:20px;margin-bottom:4px}
+.field{width:100%;background:#111c2b;border:1px solid var(--line);border-radius:10px;color:white;padding:12px;margin-top:7px}
+label{display:block;margin-top:14px;font-size:13px;color:var(--muted)}
+.notice{padding:11px;border-radius:10px;background:#26374b;color:#dce7f7;font-size:13px;margin-top:10px;overflow-wrap:anywhere}
+.item{padding:13px 0;border-bottom:1px solid var(--line)}.item:last-child{border-bottom:0}
+.small{font-size:12px}.profile-avatar{width:54px;height:54px;border-radius:50%;background:#263b50;display:grid;place-items:center;font-size:24px;overflow:hidden}
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#e7fff5;color:#13271f;padding:12px 16px;border-radius:12px;z-index:10;display:none;max-width:90%;font-size:13px}
+</style>
 </head>
 <body>
 <div class="app">
-  <header>
-    <div class="brand">FC <span>POINTS</span></div>
-    <div class="pill" id="connection">Connecting…</div>
-  </header>
-
-  <main>
-    <section id="home" class="page active">
-      <div class="card balance">
-        <div class="muted">Your FC Points balance</div>
-        <div class="amount" id="balance">0 FC</div>
-        <div class="row">
-          <span class="muted" id="userGreeting">Welcome!</span>
-          <button class="btn secondary" onclick="showPage('profile')">My profile</button>
-        </div>
-      </div>
-
-      <div class="section-title">Normal Earning</div>
-      <div class="card">
-        <div class="row">
-          <div><div class="muted">Today's normal earnings</div><strong id="normalEarned">0 / 200 FC</strong></div>
-          <div class="icon">⏱️</div>
-        </div>
-        <div class="progress"><span id="normalProgress"></span></div>
-        <div class="muted">Earn gradually. Rewarded ads are optional.</div>
-        <button id="earningButton" class="btn primary full" onclick="toggleEarning()">Start earning</button>
-        <div id="earningStatus" class="notice hidden"></div>
-      </div>
-
-      <div class="section-title">Daily Rewards</div>
-      <div class="grid">
-        <div class="tile"><div class="icon">🎟️</div><div class="muted">Ticket</div><strong>200 FC</strong><div class="small muted">4 rewarded ads × 50</div><button class="btn secondary full" onclick="claimReward('ticket')">Claim</button></div>
-        <div class="tile"><div class="icon">🚀</div><div class="muted">Boost</div><strong>100 FC</strong><div class="small muted">4 rewarded ads × 25</div><button class="btn secondary full" onclick="claimReward('boost')">Claim</button></div>
-        <div class="tile"><div class="icon">🎁</div><div class="muted">Personal Reward</div><strong>120 FC</strong><div class="small muted">12 rewarded ads × 10</div><button class="btn secondary full" onclick="claimReward('personal')">Claim</button></div>
-        <div class="tile"><div class="icon">📅</div><div class="muted">Daily Check-in</div><strong>10 FC</strong><div class="small muted">Once a day</div><button class="btn secondary full" onclick="claimReward('checkin')">Check in</button></div>
-        <div class="tile"><div class="icon">✅</div><div class="muted">Daily Task</div><strong>20 FC</strong><div class="small muted">Complete a task</div><button class="btn secondary full" onclick="showPage('tasks')">View tasks</button></div>
-        <div class="tile"><div class="icon">📊</div><div class="muted">Daily Total</div><strong>650 FC</strong><div class="small muted">Maximum planned daily rewards</div></div>
-      </div>
-
-      <div class="section-title">About FC Points</div>
-      <div class="card">
-        <div class="muted">Earn FC Points through available activities. Rewarded ads are optional and provide additional rewards where supported.</div>
-        <button class="btn secondary full" onclick="showPage('about')">About & Support</button>
-      </div>
-    </section>
-
-    <section id="tasks" class="page">
-      <div class="section-title">Daily Tasks</div>
-      <div class="card">
-        <div class="row"><strong>Daily goal</strong><span class="pill">20 FC</span></div>
-        <p class="muted">Complete the available daily goal to claim its reward.</p>
-        <button class="btn primary full" onclick="claimReward('task')">Claim daily goal</button>
-      </div>
-      <div class="card">
-        <strong>Social Tasks</strong>
-        <p class="muted">Social rewards must only be granted after completion is verified. Clicking a Join button alone does not qualify.</p>
-        <div id="socialTasks"><div class="notice">Verified social tasks will appear here when configured by the service.</div></div>
-      </div>
-    </section>
-
-    <section id="shop" class="page">
-      <div class="section-title">VIP Shop</div>
-      <div class="card">
-        <p class="muted">Browse available items and badges. Purchases may require admin approval.</p>
-        <div id="shopItems"><div class="muted">Loading shop items…</div></div>
-      </div>
-    </section>
-
-    <section id="withdraw" class="page">
-      <div class="section-title">Withdraw FC Points</div>
-      <div class="card">
-        <div class="row"><span class="muted">Current balance</span><strong id="withdrawBalance">0 FC</strong></div>
-        <div class="notice">Minimum withdrawal: 20,000 FC Points. Withdrawal requests are subject to review.</div>
-        <form id="withdrawForm">
-          <label for="paymentMethod">Payment method</label>
-          <select class="field" id="paymentMethod" required>
-            <option value="">Select a method</option>
-            <option value="bKash">bKash</option>
-            <option value="Nagad">Nagad</option>
-            <option value="Binance">Binance</option>
-          </select>
-          <label for="paymentIdentifier">Payment number or ID</label>
-          <input class="field" id="paymentIdentifier" required maxlength="120" placeholder="Enter payment details">
-          <label for="withdrawAmount">Amount (FC Points)</label>
-          <input class="field" id="withdrawAmount" required type="number" min="20000" step="1" placeholder="Minimum 20000">
-          <button class="btn primary full" type="submit">Submit withdrawal request</button>
-        </form>
-        <div id="withdrawMessage" class="notice hidden"></div>
-      </div>
-    </section>
-
-    <section id="profile" class="page">
-      <div class="section-title">My Profile</div>
-      <div class="card">
-        <div class="row">
-          <div class="profile-avatar" id="avatar">👤</div>
-          <div style="flex:1"><strong id="profileName">Telegram User</strong><div class="muted" id="profileUsername">@username</div><div class="small muted" id="profileId"></div></div>
-        </div>
-        <label for="customName">Display name</label>
-        <input class="field" id="customName" maxlength="40" placeholder="Your display name">
-        <button class="btn primary full" onclick="saveProfile()">Save profile</button>
-        <div class="notice">Your Telegram identity is verified by the backend. VIP badges and blue ticks should be applied only after an approved purchase.</div>
-      </div>
-      <div class="card"><div class="muted">FC Points balance</div><div class="amount" id="profileBalance">0 FC</div></div>
-    </section>
-
-    <section id="about" class="page">
-      <div class="section-title">About & Support</div>
-      <div class="card">
-        <strong>About FC Points</strong>
-        <p class="muted">FC Points is a rewards mini app. Earn through supported activities and check your balance in your profile.</p>
-      </div>
-      <div class="card">
-        <strong>Support</strong>
-        <p class="muted">For account or reward issues, contact the official support channel once it is configured.</p>
-        <div class="notice">Support contact has not been configured yet.</div>
-      </div>
-    </section>
-  </main>
+<header><div class="brand">FC <span>POINTS</span></div><div class="pill" id="connection">Connecting…</div></header>
+<main>
+<section id="home" class="page active">
+<div class="card balance">
+<div class="muted">Your FC Points balance</div><div class="amount" id="balance">0 FC</div>
+<div class="row"><span class="muted" id="userGreeting">Welcome!</span><button class="btn secondary" onclick="showPage('profile')">My profile</button></div>
 </div>
+<div class="section-title">Normal Earning</div>
+<div class="card">
+<div class="row"><div><div class="muted">Today's normal earnings</div><strong id="normalEarned">0 / 200 FC</strong></div><div class="icon">⏱️</div></div>
+<div class="progress"><span id="normalProgress"></span></div>
+<div class="muted">Earn gradually. Rewarded ads are optional.</div>
+<button id="earningButton" class="btn primary full" onclick="toggleEarning()">Start earning</button>
+<div id="earningStatus" class="notice">Normal earning gives 1 FC every 6 seconds, up to 200 FC daily.</div>
+</div>
+<div class="section-title">Daily Rewards</div>
+<div class="grid">
+<div class="tile"><div class="icon">🎟️</div><div class="muted">Ticket</div><strong>200 FC</strong><div class="small muted">4 rewarded ads × 50</div><button class="btn secondary full" onclick="claimReward('ticket')">Claim</button></div>
+<div class="tile"><div class="icon">🚀</div><div class="muted">Boost</div><strong>100 FC</strong><div class="small muted">4 rewarded ads × 25</div><button class="btn secondary full" onclick="claimReward('boost')">Claim</button></div>
+<div class="tile"><div class="icon">🎁</div><div class="muted">Personal Reward</div><strong>120 FC</strong><div class="small muted">12 rewarded ads × 10</div><button class="btn secondary full" onclick="claimReward('personal')">Claim</button></div>
+<div class="tile"><div class="icon">📅</div><div class="muted">Daily Check-in</div><strong>10 FC</strong><div class="small muted">Once a day</div><button class="btn secondary full" onclick="claimReward('checkin')">Check in</button></div>
+<div class="tile"><div class="icon">✅</div><div class="muted">Daily Task</div><strong>20 FC</strong><div class="small muted">Daily task status</div><button class="btn secondary full" onclick="showPage('tasks')">View tasks</button></div>
+<div class="tile"><div class="icon">📊</div><div class="muted">Daily Total</div><strong>650 FC</strong><div class="small muted">Maximum planned daily rewards</div></div>
+</div>
+<div class="section-title">About FC Points</div>
+<div class="card"><div class="muted">Earn FC Points through available activities. Rewarded ads are optional.</div><button class="btn secondary full" onclick="showPage('about')">About & Support</button></div>
+</section>
 
+<section id="tasks" class="page">
+<div class="section-title">Daily Tasks</div>
+<div class="card"><div class="row"><strong>Daily goal</strong><span class="pill">20 FC</span></div><p class="muted">Daily task status is checked with the server.</p><div id="dailyTaskStatus" class="notice">Loading task status…</div><button class="btn secondary full" onclick="loadTaskStatus()">Refresh task status</button></div>
+<div class="card"><strong>Social Tasks</strong><p class="muted">Join the configured Telegram channel, then verify membership to request the reward.</p><div id="socialTasks"><div class="notice">Loading social tasks…</div></div></div>
+</section>
+
+<section id="shop" class="page">
+<div class="section-title">VIP Shop</div>
+<div class="card"><p class="muted">Choose a badge. Purchase requests require admin approval.</p><div id="shopItems"></div></div>
+</section>
+
+<section id="withdraw" class="page">
+<div class="section-title">Withdraw FC Points</div>
+<div class="card">
+<div class="row"><span class="muted">Current balance</span><strong id="withdrawBalance">0 FC</strong></div>
+<div class="notice">Minimum withdrawal: 20,000 FC Points. Requests are subject to review.</div>
+<form id="withdrawForm">
+<label for="paymentMethod">Payment method</label><select class="field" id="paymentMethod" required><option value="">Select a method</option><option value="bKash">bKash</option><option value="Nagad">Nagad</option><option value="Binance">Binance</option></select>
+<label for="paymentIdentifier">Payment number or ID</label><input class="field" id="paymentIdentifier" required maxlength="100" placeholder="Enter payment details">
+<label for="withdrawAmount">Amount (FC Points)</label><input class="field" id="withdrawAmount" required type="number" min="20000" step="1" placeholder="Minimum 20000">
+<button class="btn primary full" id="withdrawButton" type="submit">Submit withdrawal request</button>
+</form><div id="withdrawMessage" class="notice" hidden></div>
+</div>
+<div class="card"><strong>Recent withdrawal requests</strong><div id="withdrawalHistory" class="notice">Loading…</div></div>
+</section>
+
+<section id="profile" class="page">
+<div class="section-title">My Profile</div>
+<div class="card">
+<div class="row"><div class="profile-avatar" id="avatar">👤</div><div style="flex:1"><strong id="profileName">Telegram User</strong><div class="muted" id="profileUsername">Telegram user</div><div class="small muted" id="profileId"></div></div></div>
+<label for="customName">Display name</label><input class="field" id="customName" maxlength="40" placeholder="Your display name">
+<button class="btn primary full" onclick="saveProfile()">Save profile</button>
+<div class="notice">Your Telegram identity is verified by the backend. Approved badges appear on your profile.</div>
+<div id="badgeList" class="notice">Loading badges…</div>
+</div>
+<div class="card"><div class="muted">FC Points balance</div><div class="amount" id="profileBalance">0 FC</div></div>
+</section>
+
+<section id="about" class="page">
+<div class="section-title">About & Support</div>
+<div class="card"><strong>About FC Points</strong><p class="muted">FC Points is a rewards mini app. Earn through supported activities and check your balance in your profile.</p></div>
+<div class="card"><strong>Support</strong><p class="muted">The official support contact has not been configured yet.</p></div>
+</section>
+</main>
+</div>
 <nav class="nav">
-  <button class="active" data-page="home" onclick="showPage('home',this)"><span class="ni">⌂</span>Home</button>
-  <button data-page="tasks" onclick="showPage('tasks',this)"><span class="ni">✓</span>Tasks</button>
-  <button data-page="shop" onclick="showPage('shop',this)"><span class="ni">♢</span>Shop</button>
-  <button data-page="withdraw" onclick="showPage('withdraw',this)"><span class="ni">⇧</span>Withdraw</button>
-  <button data-page="profile" onclick="showPage('profile',this)"><span class="ni">◉</span>Profile</button>
+<button class="active" data-page="home" onclick="showPage('home',this)"><span class="ni">⌂</span>Home</button>
+<button data-page="tasks" onclick="showPage('tasks',this)"><span class="ni">✓</span>Tasks</button>
+<button data-page="shop" onclick="showPage('shop',this)"><span class="ni">♢</span>Shop</button>
+<button data-page="withdraw" onclick="showPage('withdraw',this)"><span class="ni">⇧</span>Withdraw</button>
+<button data-page="profile" onclick="showPage('profile',this)"><span class="ni">◉</span>Profile</button>
 </nav>
 <div id="toast"></div>
-
 <script>
-(() => {
-  'use strict';
+(function(){
+'use strict';
+const API_BASE='https://fp-points-backend.onrender.com';
+const tg=window.Telegram&&window.Telegram.WebApp;
+const state={initData:tg&&tg.initData?tg.initData:'',user:null,activity:null,earning:false,earningTimer:null,earnAccumulator:0,earningBusy:false,normalMax:200};
+const $=id=>document.getElementById(id);
+if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('#101827');tg.setBackgroundColor('#101827')}catch(e){}}
 
-  const API_BASE = 'https://fp-points-backend.onrender.com';
-  const tg = window.Telegram?.WebApp;
-  const state = {
-    initData: tg?.initData || '',
-    user: null,
-    settings: {},
-    earning: false,
-    earningTimer: null,
-    earningStartedAt: 0,
-    earningToken: '',
-    lastClaim: 0
-  };
+function toast(message){
+const el=$('toast');el.textContent=String(message||'Something went wrong.');el.style.display='block';
+clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.style.display='none',3500);
+}
+function setConnection(message){$('connection').textContent=message}
+function setBusy(button,busy,label){
+if(!button)return;
+if(busy){button.dataset.oldText=button.textContent;button.textContent=label||'Please wait…';button.disabled=true}
+else{button.disabled=false;if(button.dataset.oldText){button.textContent=button.dataset.oldText;delete button.dataset.oldText}}
+}
+async function api(path,options){
+options=options||{};
+if(!state.initData)throw new Error('অ্যাকাউন্ট চালু করতে Telegram Mini App থেকে অ্যাপটি খুলুন।');
+let response;
+try{
+response=await fetch(API_BASE+path,{
+method:options.method||'GET',
+headers:{'Content-Type':'application/json','X-Telegram-Init-Data':state.initData},
+body:options.body===undefined?undefined:JSON.stringify(options.body)
+});
+}catch(e){throw new Error('সার্ভারের সঙ্গে সংযোগ হচ্ছে না। ইন্টারনেট ও Backend চালু আছে কি না দেখুন।')}
+let data;
+try{data=await response.json()}catch(e){throw new Error('সার্ভার থেকে সঠিক উত্তর আসেনি।')}
+if(!response.ok||data.error||data.status==='error')throw new Error(data.error||data.message||'অনুরোধটি সম্পন্ন হয়নি।');
+return data;
+}
+function points(user){return Number(user&&user.balance!=null?user.balance:0)}
+function renderUser(user){
+if(!user)return;
+state.user=Object.assign({},state.user||{},user);
+const u=state.user,amount=points(u),tgUser=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user;
+$('balance').textContent=amount.toLocaleString()+' FC';
+$('withdrawBalance').textContent=amount.toLocaleString()+' FC';
+$('profileBalance').textContent=amount.toLocaleString()+' FC';
+const name=u.display_name||[tgUser&&tgUser.first_name,tgUser&&tgUser.last_name].filter(Boolean).join(' ')||u.first_name||'FC Points User';
+$('userGreeting').textContent='Welcome, '+name;
+$('profileName').textContent=name;
+$('profileUsername').textContent=u.username?'@'+u.username:(tgUser&&tgUser.username?'@'+tgUser.username:'Telegram user');
+$('profileId').textContent=u.telegram_id?'Telegram ID: '+u.telegram_id:(tgUser&&tgUser.id?'Telegram ID: '+tgUser.id:'');
+$('customName').value=u.display_name||'';
+const earned=Number(state.activity&&state.activity.normal_earned_today!=null?state.activity.normal_earned_today:0);
+$('normalEarned').textContent=earned+' / '+state.normalMax+' FC';
+$('normalProgress').style.width=Math.min(100,earned/state.normalMax*100)+'%';
+const badges=Array.isArray(u.badges)?u.badges:[];
+$('badgeList').textContent=badges.length?'Your badges: '+badges.map(b=>b.name||b.key).join(', '):'No approved VIP badges yet.';
+if(earned>=state.normalMax&&state.earning)stopEarning(false);
+}
+function showPage(id,button){
+document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+const page=$(id);if(page)page.classList.add('active');
+document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+const nav=button||document.querySelector('.nav button[data-page="'+id+'"]');if(nav)nav.classList.add('active');
+window.scrollTo({top:0,behavior:'smooth'});
+if(id==='shop')loadShop();
+if(id==='tasks'){loadTaskStatus();loadSocialTasks()}
+if(id==='withdraw')loadWithdrawals();
+}
+window.showPage=showPage;
 
-  if (tg) {
-    tg.ready();
-    tg.expand();
-    try { tg.setHeaderColor('#101827'); tg.setBackgroundColor('#101827'); } catch (_) {}
-  }
+async function refreshUser(){
+const data=await api('/api/user');
+state.activity={
+normal_earned_today:Number(data.user&&data.user.normal_earned_today||0),
+todayEarned:Number(data.user&&data.user.todayEarned||0)
+};
+renderUser(data.user);
+return data.user;
+}
+async function loadApp(){
+if(!state.initData){
+setConnection('Open in Telegram');
+$('earningStatus').textContent='Telegram Mini App থেকে খুললে লগইন করা যাবে।';
+$('earningButton').disabled=true;
+document.querySelectorAll('.nav button').forEach(b=>b.disabled=true);
+toast('অ্যাপটি Telegram bot-এর ভিতর থেকে খুলুন।');
+return;
+}
+setConnection('Connecting…');
+try{
+await api('/api/register',{method:'POST',body:{initData:state.initData}});
+await refreshUser();
+setConnection('Connected');
+await loadTaskStatus();
+await loadSocialTasks();
+}catch(e){setConnection('Connection issue');toast(e.message);$('earningStatus').textContent=e.message}
+}
+async function toggleEarning(){
+const button=$('earningButton');
+if(state.earning){stopEarning(true);return}
+if(!state.user){toast('অ্যাকাউন্ট লোড হওয়া পর্যন্ত অপেক্ষা করুন।');return}
+setBusy(button,true,'Starting…');
+try{
+const data=await api('/api/earning/start',{method:'POST',body:{}});
+const earned=Number(data.normalEarnedToday||0);
+state.activity=state.activity||{};
+state.activity.normal_earned_today=earned;
+if(earned>=state.normalMax){renderUser(state.user);throw new Error('আজকের Normal Earning সীমা পূর্ণ হয়েছে।')}
+state.earning=true;state.earnAccumulator=0;
+button.disabled=false;button.textContent='Stop earning';button.className='btn danger full';
+$('earningStatus').textContent='Earning চলছে। প্রতি ৬ সেকেন্ডে ১ FC দাবি করা যাবে।';
+$('earningStatus').classList.remove('hidden');
+state.earningTimer=setInterval(earningTick,1000);
+toast('Earning started');
+}catch(e){setBusy(button,false);toast(e.message)}
+}
+window.toggleEarning=toggleEarning;
+async function earningTick(){
+if(!state.earning||state.earningBusy)return;
+const earned=Number(state.activity&&state.activity.normal_earned_today||0);
+if(earned>=state.normalMax){stopEarning(false);toast('আজকের Normal Earning সীমা পূর্ণ হয়েছে।');return}
+state.earnAccumulator++;
+if(state.earnAccumulator<6)return;
+state.earningBusy=true;state.earnAccumulator=0;
+try{
+const data=await api('/api/earning/claim',{method:'POST',body:{}});
+state.activity=state.activity||{};
+state.activity.normal_earned_today=Number(data.normalEarnedToday||earned+1);
+if(state.user)state.user.balance=Number(data.balance!=null?data.balance:points(state.user));
+renderUser(state.user);
+toast('+'+Number(data.awarded||1)+' FC Points');
+if(state.activity.normal_earned_today>=state.normalMax)stopEarning(false);
+}catch(e){stopEarning(false);toast(e.message)}
+finally{state.earningBusy=false}
+}
+function stopEarning(showMessage){
+if(state.earningTimer)clearInterval(state.earningTimer);
+state.earningTimer=null;state.earning=false;state.earnAccumulator=0;
+const b=$('earningButton');b.disabled=false;b.textContent='Start earning';b.className='btn primary full';
+if(showMessage)toast('Earning stopped');
+}
+async function claimReward(type){
+if(type==='checkin'){
+const button=event&&event.currentTarget;
+setBusy(button,true,'Checking in…');
+try{
+const data=await api('/api/checkin',{method:'POST',body:{}});
+await refreshUser();toast('+'+Number(data.awarded||10)+' FC Points');
+}catch(e){toast(e.message)}
+finally{setBusy(button,false)}
+return;
+}
+if(type==='task'){showPage('tasks');return}
+toast('এই Reward-এর জন্য AdsGram-এর verified server integration এখনো চালু নেই।');
+}
+window.claimReward=claimReward;
 
-  const $ = id => document.getElementById(id);
+async function loadTaskStatus(){
+if(!state.initData)return;
+const el=$('dailyTaskStatus');
+try{
+const data=await api('/api/tasks/status');
+el.textContent='আজকের মোট আয়: '+Number(data.todayEarned||0)+' / '+Number(data.dailyMaximum||650)+' FC. '+(data.checkinClaimed?'Daily check-in নেওয়া হয়েছে।':'Daily check-in এখনো নেওয়া হয়নি।')+' '+(data.dailyTaskCompleted?'Daily task সম্পন্ন হয়েছে।':'Daily task এখনো সম্পন্ন হয়নি।');
+}catch(e){el.textContent=e.message}
+}
+window.loadTaskStatus=loadTaskStatus;
 
-  function toast(message) {
-    const el = $('toast');
-    el.textContent = message;
-    el.style.display = 'block';
-    clearTimeout(toast.timer);
-    toast.timer = setTimeout(() => el.style.display = 'none', 3200);
-  }
+async function loadSocialTasks(){
+if(!state.initData)return;
+const container=$('socialTasks');container.textContent='Loading…';
+try{
+const data=await api('/api/social-tasks');
+container.innerHTML='';
+if(!data.tasks||!data.tasks.length){container.textContent='এখন কোনো Social Task নেই।';return}
+data.tasks.forEach(task=>{
+const row=document.createElement('div');row.className='item';
+const title=document.createElement('strong');title.textContent=task.title||'Telegram task';
+const desc=document.createElement('div');desc.className='muted';desc.textContent=(task.description||'Telegram channel membership verify করুন।')+' · '+Number(task.reward||0)+' FC';
+const link=document.createElement('a');link.href=task.url||'#';link.target='_blank';link.rel='noopener';link.textContent='Open task';link.style.color='#62e6b5';link.style.display='inline-block';link.style.marginTop='10px';
+const btn=document.createElement('button');btn.className='btn secondary full';btn.textContent='Verify & claim reward';
+btn.onclick=async()=>{
+setBusy(btn,true,'Verifying…');
+try{const result=await api('/api/social-tasks/claim',{method:'POST',body:{taskId:String(task.id)}});await refreshUser();toast('+'+Number(result.awarded||task.reward||0)+' FC Points');await loadTaskStatus();btn.textContent='Reward claimed';btn.disabled=true}
+catch(e){toast(e.message);setBusy(btn,false)}
+};
+row.append(title,desc,link,btn);container.appendChild(row);
+});
+}catch(e){container.textContent=e.message}
+}
 
-  function setConnection(text) { $('connection').textContent = text; }
+const badges=[
+{key:'blueberry',name:'Blueberry',price:5000,description:'Blueberry VIP badge'},
+{key:'green_berry',name:'Green Berry',price:10000,description:'Green Berry VIP badge'},
+{key:'blue_tick',name:'Verified Blue Tick',price:15000,description:'Verified profile badge'},
+{key:'black_vip',name:'Black VIP',price:25000,description:'Highest VIP badge'}
+];
+async function loadShop(){
+const container=$('shopItems');container.innerHTML='';
+badges.forEach(item=>{
+const row=document.createElement('div');row.className='item';
+const title=document.createElement('strong');title.textContent=item.name;
+const detail=document.createElement('div');detail.className='muted';detail.textContent=item.description+' · '+item.price.toLocaleString()+' FC';
+const button=document.createElement('button');button.className='btn secondary full';button.textContent='Request purchase';
+button.onclick=async()=>{
+setBusy(button,true,'Submitting…');
+try{await api('/api/shop/request',{method:'POST',body:{badge:item.key}});toast('Purchase request submitted for admin approval.');button.textContent='Request submitted';button.disabled=true}
+catch(e){toast(e.message);setBusy(button,false)}
+};
+row.append(title,detail,button);container.appendChild(row);
+});
+}
+window.loadShop=loadShop;
 
-  async function api(path, options = {}) {
-    if (!state.initData) {
-      throw new Error('Open this app inside Telegram to authenticate your account.');
-    }
-    const response = await fetch(API_BASE + path, {
-      method: options.method || 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Telegram-Init-Data': state.initData,
-        ...(options.headers || {})
-      },
-      ...(options.body !== undefined ? {body: JSON.stringify(options.body)} : {})
-    });
-    let data;
-    try { data = await response.json(); }
-    catch (_) { throw new Error('The server returned an invalid response.'); }
-    if (!response.ok || data.status === 'error') {
-      throw new Error(data.message || 'Request failed.');
-    }
-    return data;
-  }
+async function saveProfile(){
+const button=event&&event.currentTarget;
+const displayName=$('customName').value.trim();
+if(!displayName){toast('একটি নাম লিখুন।');return}
+setBusy(button,true,'Saving…');
+try{
+const data=await api('/api/profile/display-name',{method:'PATCH',body:{displayName}});
+renderUser(data.user);toast('Profile updated.');
+}catch(e){toast(e.message)}
+finally{setBusy(button,false)}
+}
+window.saveProfile=saveProfile;
 
-  function getPoints(user) {
-    return Number(user?.fc_points ?? user?.points ?? 0);
-  }
-
-  function renderUser(user) {
-    if (!user) return;
-    state.user = {...(state.user || {}), ...user};
-    const points = getPoints(state.user);
-    $('balance').textContent = points.toLocaleString() + ' FC';
-    $('withdrawBalance').textContent = points.toLocaleString() + ' FC';
-    $('profileBalance').textContent = points.toLocaleString() + ' FC';
-
-    const first = tg?.initDataUnsafe?.user;
-    const name = state.user.custom_name || state.user.display_name ||
-      [first?.first_name, first?.last_name].filter(Boolean).join(' ') ||
-      state.user.first_name || 'FC Points User';
-    $('userGreeting').textContent = 'Welcome, ' + name;
-    $('profileName').textContent = name;
-    $('profileUsername').textContent = first?.username ? '@' + first.username : 'Telegram user';
-    $('profileId').textContent = first?.id ? 'Telegram ID: ' + first.id : '';
-    $('customName').value = state.user.custom_name || state.user.display_name || '';
-
-    const normal = Number(state.user.earning_points_today || 0);
-    const limit = Number(state.settings.normal_daily_limit || 200);
-    $('normalEarned').textContent = normal + ' / ' + limit + ' FC';
-    $('normalProgress').style.width = Math.min(100, normal / Math.max(1, limit) * 100) + '%';
-  }
-
-  function showPage(id, button) {
-    document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
-    const page = $(id);
-    if (page) page.classList.add('active');
-    document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
-    const navButton = button || document.querySelector('.nav button[data-page="' + id + '"]');
-    if (navButton) navButton.classList.add('active');
-    window.scrollTo({top: 0, behavior: 'smooth'});
-    if (id === 'shop') loadShop();
-  }
-  window.showPage = showPage;
-
-  async function loadApp() {
-    if (!state.initData) {
-      setConnection('Open in Telegram');
-      $('earningStatus').textContent = 'Open this mini app from its Telegram bot to sign in securely.';
-      $('earningStatus').classList.remove('hidden');
-      document.querySelectorAll('button').forEach(b => {
-        if (b.id !== 'earningButton') b.disabled = true;
-      });
-      $('earningButton').disabled = true;
-      return;
-    }
-    try {
-      setConnection('Connecting…');
-      const data = await api('/api/me');
-      renderUser(data.user || data.profile || data);
-      if (data.settings) state.settings = data.settings;
-      setConnection('Connected');
-      await loadShop();
-    } catch (error) {
-      setConnection('Connection issue');
-      toast(error.message);
-    }
-  }
-
-  async function toggleEarning() {
-    if (!state.user) return toast('Please wait for your account to load.');
-    if (state.earning) {
-      await stopEarning();
-      return;
-    }
-    try {
-      const data = await api('/api/earning/start', {method: 'POST', body: {}});
-      state.earning = true;
-      state.earningStartedAt = Date.now();
-      state.earningToken = data.earning_token || data.token || '';
-      $('earningButton').textContent = 'Stop earning';
-      $('earningButton').className = 'btn danger full';
-      $('earningStatus').textContent = 'Earning session is active. Keep this app open.';
-      $('earningStatus').classList.remove('hidden');
-      state.earningTimer = setInterval(claimElapsed, 30000);
-      toast('Earning started');
-    } catch (error) {
-      toast(error.message);
-    }
-  }
-  window.toggleEarning = toggleEarning;
-
-  async function claimElapsed() {
-    if (!state.earning) return;
-    try {
-      const elapsedSeconds = Math.floor((Date.now() - state.earningStartedAt) / 1000);
-      const points = Math.floor(elapsedSeconds / 6);
-      if (points < 1) return;
-      const data = await api('/api/earning/claim', {
-        method: 'POST',
-        body: {points, earning_token: state.earningToken}
-      });
-      state.earningStartedAt = Date.now();
-      if (data.user) renderUser(data.user);
-      if (Number(data.added || 0) > 0) toast('+' + data.added + ' FC Points');
-      const limit = Number(state.settings.normal_daily_limit || 200);
-      if (Number(data.user?.earning_points_today || 0) >= limit) await stopEarning();
-    } catch (error) {
-      await stopEarning(false);
-      toast(error.message);
-    }
-  }
-
-  async function stopEarning(showToast = true) {
-    clearInterval(state.earningTimer);
-    state.earningTimer = null;
-    const wasEarning = state.earning;
-    state.earning = false;
-    $('earningButton').textContent = 'Start earning';
-    $('earningButton').className = 'btn primary full';
-    try {
-      if (wasEarning) await api('/api/earning/stop', {method: 'POST', body: {}});
-    } catch (_) {}
-    if (showToast && wasEarning) toast('Earning stopped');
-  }
-
-  async function claimReward(type) {
-    try {
-      let path, body = {};
-      if (type === 'checkin') path = '/api/checkin';
-      else if (type === 'task') path = '/api/tasks/goal';
-      else if (type === 'ticket') path = '/api/reward/ticket';
-      else if (type === 'boost') path = '/api/reward/boost';
-      else if (type === 'personal') path = '/api/reward/personal';
-      else throw new Error('Unknown reward type.');
-
-      const data = await api(path, {method: 'POST', body});
-      if (data.user) renderUser(data.user);
-      toast(data.message || 'Request completed.');
-    } catch (error) {
-      toast(error.message);
-    }
-  }
-  window.claimReward = claimReward;
-
-  async function loadShop() {
-    if (!state.initData) return;
-    try {
-      const data = await api('/api/shop');
-      const items = data.items || [];
-      $('shopItems').innerHTML = '';
-      if (!items.length) {
-        $('shopItems').innerHTML = '<div class="muted">No shop items are available yet.</div>';
-        return;
-      }
-      items.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'item';
-        const title = document.createElement('strong');
-        title.textContent = item.item_name || item.name || 'VIP item';
-        const detail = document.createElement('div');
-        detail.className = 'muted';
-        detail.textContent = (item.description || 'Purchase request') + ' · ' +
-          Number(item.price_fc || 0).toLocaleString() + ' FC';
-        const button = document.createElement('button');
-        button.className = 'btn secondary full';
-        button.textContent = 'Request purchase';
-        button.onclick = async () => {
-          try {
-            const result = await api('/api/shop/purchase', {
-              method: 'POST', body: {item_id: item.id}
-            });
-            if (result.user) renderUser(result.user);
-            toast('Purchase request submitted for review.');
-          } catch (error) { toast(error.message); }
-        };
-        row.append(title, detail, button);
-        $('shopItems').appendChild(row);
-      });
-    } catch (error) {
-      $('shopItems').textContent = error.message;
-    }
-  }
-
-  async function saveProfile() {
-    const customName = $('customName').value.trim();
-    if (!customName) return toast('Enter a display name.');
-    try {
-      const data = await api('/api/profile', {method: 'PATCH', body: {custom_name: customName}});
-      if (data.user) renderUser(data.user);
-      else renderUser({...state.user, custom_name: customName});
-      toast('Profile updated.');
-    } catch (error) { toast(error.message); }
-  }
-  window.saveProfile = saveProfile;
-
-  $('withdrawForm').addEventListener('submit', async event => {
-    event.preventDefault();
-    const amount = Number($('withdrawAmount').value);
-    const method = $('paymentMethod').value;
-    const identifier = $('paymentIdentifier').value.trim();
-    if (!Number.isInteger(amount) || amount < 20000) return toast('Minimum withdrawal is 20,000 FC Points.');
-    try {
-      const data = await api('/api/withdraw', {
-        method: 'POST',
-        body: {
-          amount,
-          coins: amount,
-          payment_method: method,
-          payment_identifier: identifier
-        }
-      });
-      if (data.user) renderUser(data.user);
-      $('withdrawMessage').textContent = data.message || 'Withdrawal request submitted.';
-      $('withdrawMessage').classList.remove('hidden');
-      toast('Withdrawal request submitted.');
-    } catch (error) {
-      $('withdrawMessage').textContent = error.message;
-      $('withdrawMessage').classList.remove('hidden');
-    }
-  });
-
-  window.addEventListener('beforeunload', () => {
-    if (state.earningTimer) clearInterval(state.earningTimer);
-  });
-
-  loadApp();
+$('withdrawForm').addEventListener('submit',async function(e){
+e.preventDefault();
+const button=$('withdrawButton'),amount=Number($('withdrawAmount').value);
+const method=$('paymentMethod').value,account=$('paymentIdentifier').value.trim();
+const message=$('withdrawMessage');message.hidden=true;
+if(!Number.isInteger(amount)||amount<20000){toast('Minimum withdrawal is 20,000 FC Points.');return}
+if(!method||!account){toast('Payment method ও account details দিন।');return}
+setBusy(button,true,'Submitting…');
+try{
+const data=await api('/api/withdrawals',{method:'POST',body:{amount,method,account}});
+if(state.user&&data.balance!=null)state.user.balance=Number(data.balance);
+renderUser(state.user);
+message.textContent='Withdrawal request submitted. Status: pending.';message.hidden=false;
+$('withdrawAmount').value='';$('paymentIdentifier').value='';
+toast('Withdrawal request submitted.');
+await loadWithdrawals();
+}catch(err){message.textContent=err.message;message.hidden=false;toast(err.message)}
+finally{setBusy(button,false)}
+});
+async function loadWithdrawals(){
+if(!state.initData)return;
+const el=$('withdrawalHistory');el.textContent='Loading…';
+try{
+const data=await api('/api/withdrawals');
+el.innerHTML='';
+if(!data.withdrawals||!data.withdrawals.length){el.textContent='কোনো withdrawal request নেই।';return}
+data.withdrawals.forEach(w=>{
+const row=document.createElement('div');row.className='item';
+row.textContent=Number(w.amount||0).toLocaleString()+' FC · '+String(w.method||'')+' · '+String(w.status||'pending');
+el.appendChild(row);
+});
+}catch(e){el.textContent=e.message}
+}
+window.addEventListener('beforeunload',()=>{if(state.earningTimer)clearInterval(state.earningTimer)});
+loadApp();
 })();
 </script>
 </body>
