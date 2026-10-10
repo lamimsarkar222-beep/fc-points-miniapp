@@ -1,10 +1,16 @@
 
 const express = require("express");
 const crypto = require("crypto");
+const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 app.use(express.json({ limit: "100kb" }));
+
+// Serve the admin panel from the backend service.
+app.get("/admin.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "admin.html"));
+});
 
 const PORT = process.env.PORT || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL;
