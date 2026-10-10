@@ -1,3 +1,4 @@
+
 const express = require("express");
 const crypto = require("crypto");
 const path = require("path");
@@ -66,8 +67,19 @@ app.use((req, res, next) => {
     FRONTEND_URL,
     "https://found-points-app.onrender.com"
   ];
+  const originAllowed = allowedOrigins.includes(origin);
 
-  if (allowedOrigins.includes(origin)) {
+  console.log(
+    "[CORS]",
+    req.method,
+    req.path,
+    "origin=",
+    origin || "(none)",
+    "allowed=",
+    originAllowed
+  );
+
+  if (originAllowed) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
   }
