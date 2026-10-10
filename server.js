@@ -12,10 +12,20 @@ app.get("/admin.html", (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const FRONTEND_URL = process.env.FRONTEND_URL || "*";
-const ADMIN_TELEGRAM_ID = String(process.env.ADMIN_TELEGRAM_ID || "");
+
+const FRONTEND_URL = (
+  process.env.FRONTEND_URL ||
+  "https://found-points-app.onrender.com"
+)
+  .trim()
+  .replace(/\/+$/, "");
+
+const ADMIN_TELEGRAM_ID = String(
+  process.env.ADMIN_TELEGRAM_ID || ""
+);
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !BOT_TOKEN) {
@@ -23,9 +33,16 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !BOT_TOKEN) {
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false }
-});
+const supabase = createClient(
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  }
+);
 
 const DAILY_MAX = 650;
 const NORMAL_MAX = 200;
@@ -39,18 +56,36 @@ const BADGES = {
   black_vip: { name: "Black VIP", price: 25000 }
 };
 
+/* CORS CONFIGURATION */
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", FRONTEND_URL);
+  const origin = String(req.headers.origin || "")
+    .trim()
+    .replace(/\/+$/, "");
+
+  const allowedOrigins = [
+    FRONTEND_URL,
+    "https://found-points-app.onrender.com"
+  ];
+
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+
   res.setHeader(
     "Access-Control-Allow-Headers",
     "Content-Type, X-Telegram-Init-Data, X-Admin-Id, X-Admin-Password"
   );
+
   res.setHeader(
     "Access-Control-Allow-Methods",
     "GET, POST, PATCH, DELETE, OPTIONS"
   );
 
-  if (req.method === "OPTIONS") return res.sendStatus(204);
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
   next();
 });
 
@@ -305,6 +340,8 @@ async function addPoints(telegramId, amount, type, description) {
   };
 }
 
+/* HEALTH CHECK */
+
 app.get("/", (req, res) => {
   res.json({
     status: "ok",
@@ -332,6 +369,8 @@ app.get("/health/db", async (req, res) => {
   }
 });
 
+/* USER REGISTRATION */
+
 app.post("/api/register", async (req, res) => {
   try {
     const tg = verifyTelegramInitData(req.body?.initData);
@@ -354,6 +393,8 @@ app.post("/api/register", async (req, res) => {
     fail(res, 400, e.message);
   }
 });
+
+/* USER PROFILE */
 
 app.get("/api/user", telegramAuth, async (req, res) => {
   try {
@@ -386,6 +427,50 @@ app.get("/api/user", telegramAuth, async (req, res) => {
     fail(res, 400, e.message);
   }
 });
+
+app.patch(
+  "/api/profile/display-name",
+  telegramAuth,
+  async (req, res) => {
+    try {
+      const displayName = String(
+        req.body?.displayName || ""
+      ).trim();
+
+      if (!displayName || displayName.length > 40) {
+        return fail(
+          res,
+          400,
+          "নাম ১ থেকে ৪০ অক্ষরের মধ্যে হতে হবে।"
+        );
+      }
+
+      await ensureUser(req.telegramUser);
+
+      const user = await db(
+        "users",
+        supabase
+          .from("users")
+          .update({
+            display_name: displayName,
+            updated_at: new Date().toISOString()
+          })
+          .eq("telegram_id", String(req.telegramUser.id))
+          .select("*")
+          .single()
+      );
+
+      res.json({
+        success: true,
+        user
+      });
+    } catch (e) {
+      fail(res, 400, e.message);
+    }
+  }
+);
+
+/* NORMAL EARNING */
 
 app.post("/api/earning/start", telegramAuth, async (req, res) => {
   try {
@@ -453,6 +538,8 @@ app.post("/api/earning/claim", telegramAuth, async (req, res) => {
   }
 });
 
+/* DAILY CHECK-IN AND TASK STATUS */
+
 app.post("/api/checkin", telegramAuth, async (req, res) => {
   try {
     const user = await ensureUser(req.telegramUser);
@@ -464,6 +551,13 @@ app.post("/api/checkin", telegramAuth, async (req, res) => {
         400,
         "আজকের চেক-ইন ইতিমধ্যে নেওয়া হয়েছে।"
       );
+    }
+
+    if (
+      Number(activity.total_earned || 0) + CHECKIN_REWARD >
+      DAILY_MAX
+    ) {
+      return fail(res, 400, "আজকের দৈনিক সীমা পূর্ণ হয়েছে।");
     }
 
     await db(
@@ -509,6 +603,8 @@ app.get("/api/tasks/status", telegramAuth, async (req, res) => {
   }
 });
 
+/* TRANSACTION HISTORY */
+
 app.get("/api/transactions", telegramAuth, async (req, res) => {
   try {
     const rows = await db(
@@ -529,47 +625,7 @@ app.get("/api/transactions", telegramAuth, async (req, res) => {
   }
 });
 
-app.patch(
-  "/api/profile/display-name",
-  telegramAuth,
-  async (req, res) => {
-    try {
-      const displayName = String(
-        req.body?.displayName || ""
-      ).trim();
-
-      if (!displayName || displayName.length > 40) {
-        return fail(
-          res,
-          400,
-          "নাম ১ থেকে ৪০ অক্ষরের মধ্যে হতে হবে।"
-        );
-      }
-
-      await ensureUser(req.telegramUser);
-
-      const user = await db(
-        "users",
-        supabase
-          .from("users")
-          .update({
-            display_name: displayName,
-            updated_at: new Date().toISOString()
-          })
-          .eq("telegram_id", String(req.telegramUser.id))
-          .select("*")
-          .single()
-      );
-
-      res.json({
-        success: true,
-        user
-      });
-    } catch (e) {
-      fail(res, 400, e.message);
-    }
-  }
-);
+/* SOCIAL TASKS */
 
 app.get("/api/social-tasks", telegramAuth, async (req, res) => {
   try {
@@ -674,6 +730,14 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
       return fail(res, 400, "Invalid task reward.");
     }
 
+    if (
+      Number((await getOrCreateActivity(user.telegram_id)).total_earned || 0) +
+      reward >
+      DAILY_MAX
+    ) {
+      return fail(res, 400, "আজকের দৈনিক সীমা পূর্ণ হয়েছে।");
+    }
+
     await db(
       "social_task_claims",
       supabase.from("social_task_claims").insert({
@@ -699,6 +763,8 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
     fail(res, 400, e.message);
   }
 });
+
+/* BADGE SHOP */
 
 app.post("/api/shop/request", telegramAuth, async (req, res) => {
   try {
@@ -757,6 +823,8 @@ app.post("/api/shop/request", telegramAuth, async (req, res) => {
   }
 });
 
+/* REFERRALS */
+
 app.get("/api/referral", telegramAuth, async (req, res) => {
   try {
     const user = await ensureUser(req.telegramUser);
@@ -788,6 +856,8 @@ app.get("/api/referral", telegramAuth, async (req, res) => {
     fail(res, 400, e.message);
   }
 });
+
+/* WITHDRAWALS */
 
 app.post("/api/withdrawals", telegramAuth, async (req, res) => {
   try {
@@ -883,6 +953,8 @@ app.get("/api/withdrawals", telegramAuth, async (req, res) => {
     fail(res, 400, e.message);
   }
 });
+
+/* ADMIN: USERS */
 
 app.get("/api/admin/users", adminAuth, async (req, res) => {
   try {
@@ -1010,6 +1082,8 @@ app.post("/api/admin/users/:id/points", adminAuth, async (req, res) => {
   }
 });
 
+/* ADMIN: WITHDRAWALS */
+
 app.get("/api/admin/withdrawals", adminAuth, async (req, res) => {
   try {
     const rows = await db(
@@ -1111,6 +1185,8 @@ app.post(
     }
   }
 );
+
+/* ADMIN: BADGE REQUESTS */
 
 app.get("/api/admin/shop-requests", adminAuth, async (req, res) => {
   try {
@@ -1236,6 +1312,8 @@ app.post(
   }
 );
 
+/* ADMIN: SOCIAL TASKS */
+
 app.get("/api/admin/social-tasks", adminAuth, async (req, res) => {
   try {
     const rows = await db(
@@ -1346,6 +1424,8 @@ app.patch(
   }
 );
 
+/* ADMIN: DASHBOARD STATS */
+
 app.get("/api/admin/stats", adminAuth, async (req, res) => {
   try {
     const users = await db(
@@ -1379,14 +1459,21 @@ app.get("/api/admin/stats", adminAuth, async (req, res) => {
   }
 });
 
-// AdsGram rewards must only be granted after a verified server-side callback.
+/* ADSGRAM REWARDS
+   Rewards must only be granted after a verified server-side callback.
+*/
+
+/* ERROR HANDLER */
 
 app.use((err, req, res, next) => {
   console.error(err);
+
   res.status(500).json({
     error: "Internal server error."
   });
 });
+
+/* START SERVER */
 
 app.listen(PORT, () => {
   console.log(`FP Points backend listening on port ${PORT}`);
