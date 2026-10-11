@@ -235,10 +235,66 @@ const state={
   earningTimer:null,
   earnAccumulator:0,
   earningBusy:false,
+  earningIntent:false,
+  dailyLimitReached:false,
+  bdDay:'',
   normalMax:200
 };
 
 const $=id=>document.getElementById(id);
+const EARNING_KEY='fc_points_normal_earning_enabled';
+
+function bangladeshDay(){
+  const parts=new Intl.DateTimeFormat('en-CA',{
+    timeZone:'Asia/Dhaka',
+    year:'numeric',
+    month:'2-digit',
+    day:'2-digit'
+  }).formatToParts(new Date());
+  const values={};
+  parts.forEach(part=>{values[part.type]=part.value;});
+  return values.year+'-'+values.month+'-'+values.day;
+}
+
+function savedEarningIntent(){
+  try{return localStorage.getItem(EARNING_KEY)==='true';}
+  catch(e){return false;}
+}
+
+function saveEarningIntent(enabled){
+  state.earningIntent=!!enabled;
+  try{localStorage.setItem(EARNING_KEY,enabled?'true':'false');}
+  catch(e){}
+}
+
+function updateEarningUI(){
+  const button=$('earningButton');
+  const earned=Number(state.activity&&state.activity.normal_earned_today||0);
+  const atLimit=earned>=state.normalMax;
+  state.dailyLimitReached=atLimit;
+
+  if(atLimit){
+    button.disabled=true;
+    button.textContent='Daily limit reached';
+    button.className='btn secondary full';
+    $('earningStatus').textContent='আজকের ২০০ FC সীমা পূর্ণ হয়েছে। বাংলাদেশ সময় রাত ১২টায় আবার চালু হবে।';
+  }else if(state.earning){
+    button.disabled=true;
+    button.textContent='Earning active ✓';
+    button.className='btn primary full';
+    $('earningStatus').textContent='Normal Earning চালু আছে। পয়েন্ট ব্যালেন্সে যোগ হবে—কোনো পপ-আপ দেখানো হবে না।';
+  }else if(state.earningIntent){
+    button.disabled=true;
+    button.textContent='Earning enabled ✓';
+    button.className='btn primary full';
+    $('earningStatus').textContent='সার্ভারে সাময়িক সমস্যা হলে স্বয়ংক্রিয়ভাবে আবার চেষ্টা করা হবে।';
+  }else{
+    button.disabled=false;
+    button.textContent='Start earning';
+    button.className='btn primary full';
+    $('earningStatus').textContent='Normal earning gives 1 FC every 6 seconds, up to 200 FC daily.';
+  }
+}
 
 if(tg){
   tg.ready();
@@ -363,9 +419,7 @@ function renderUser(user){
     ?'Your badges: '+badges.map(b=>b.name||b.key).join(', ')
     :'No approved VIP badges yet.';
 
-  if(earned>=state.normalMax&&state.earning){
-    stopEarning(false);
-  }
+  updateEarningUI();
 }
 
 function showPage(id,button){
@@ -424,6 +478,14 @@ async function loadApp(){
     await refreshUser();
     setConnection('Connected');
 
+    state.bdDay=bangladeshDay();
+    state.earningIntent=savedEarningIntent();
+    updateEarningUI();
+
+    if(state.earningIntent){
+      await startEarningSession();
+    }
+
     await loadTaskStatus();
     await loadSocialTasks();
   }catch(e){
@@ -434,19 +496,22 @@ async function loadApp(){
 }
 
 async function toggleEarning(){
-  const button=$('earningButton');
-
-  if(state.earning){
-    stopEarning(true);
-    return;
-  }
+  if(state.earningIntent)return;
 
   if(!state.user){
-    toast('অ্যাকাউন্ট লোড হওয়া পর্যন্ত অপেক্ষা করুন।');
+    $('earningStatus').textContent='অ্যাকাউন্ট লোড হওয়া পর্যন্ত অপেক্ষা করুন।';
     return;
   }
 
-  setBusy(button,true,'Starting…');
+  saveEarningIntent(true);
+  updateEarningUI();
+  await startEarningSession();
+}
+
+window.toggleEarning=toggleEarning;
+
+async function startEarningSession(){
+  if(state.earning||!state.earningIntent||!state.user)return;
 
   try{
     const data=await api('/api/earning/start',{
@@ -454,48 +519,61 @@ async function toggleEarning(){
       body:{}
     });
 
-    const earned=Number(data.normalEarnedToday||0);
-
     state.activity=state.activity||{};
-    state.activity.normal_earned_today=earned;
+    state.activity.normal_earned_today=Number(data.normalEarnedToday||0);
 
-    if(earned>=state.normalMax){
-      renderUser(state.user);
-      throw new Error('আজকের Normal Earning সীমা পূর্ণ হয়েছে।');
+    if(state.activity.normal_earned_today>=state.normalMax){
+      updateEarningUI();
+      return;
     }
 
     state.earning=true;
     state.earnAccumulator=0;
+    updateEarningUI();
 
-    button.disabled=false;
-    button.textContent='Stop earning';
-    button.className='btn danger full';
-
-    $('earningStatus').textContent='Earning চলছে। প্রতি ৬ সেকেন্ডে ১ FC দাবি করা যাবে।';
-
+    if(state.earningTimer)clearInterval(state.earningTimer);
     state.earningTimer=setInterval(earningTick,1000);
-    toast('Earning started');
   }catch(e){
-    setBusy(button,false);
-    toast(e.message);
+    state.earning=false;
+    updateEarningUI();
+    $('earningStatus').textContent='সার্ভারে সাময়িক সমস্যা হচ্ছে। স্বয়ংক্রিয়ভাবে আবার চেষ্টা করা হবে।';
+    setTimeout(()=>{
+      if(state.earningIntent&&!state.earning&&!state.dailyLimitReached){
+        startEarningSession();
+      }
+    },10000);
   }
 }
-
-window.toggleEarning=toggleEarning;
 
 async function earningTick(){
   if(!state.earning||state.earningBusy)return;
 
-  const earned=Number(state.activity&&state.activity.normal_earned_today||0);
+  const today=bangladeshDay();
+  if(today!==state.bdDay){
+    state.bdDay=today;
+    state.earnAccumulator=0;
+    try{
+      await refreshUser();
+    }catch(e){}
+    if(state.earningIntent){
+      state.earning=false;
+      if(state.earningTimer)clearInterval(state.earningTimer);
+      state.earningTimer=null;
+      await startEarningSession();
+    }
+    return;
+  }
 
+  const earned=Number(state.activity&&state.activity.normal_earned_today||0);
   if(earned>=state.normalMax){
-    stopEarning(false);
-    toast('আজকের Normal Earning সীমা পূর্ণ হয়েছে।');
+    state.earning=false;
+    if(state.earningTimer)clearInterval(state.earningTimer);
+    state.earningTimer=null;
+    updateEarningUI();
     return;
   }
 
   state.earnAccumulator++;
-
   if(state.earnAccumulator<6)return;
 
   state.earningBusy=true;
@@ -508,40 +586,62 @@ async function earningTick(){
     });
 
     state.activity=state.activity||{};
-    state.activity.normal_earned_today=Number(data.normalEarnedToday||earned+1);
+    state.activity.normal_earned_today=Number(data.normalEarnedToday!=null?data.normalEarnedToday:earned+1);
 
-    if(state.user){
-      state.user.balance=Number(data.balance!=null?data.balance:points(state.user));
+    if(state.user&&data.balance!=null){
+      state.user.balance=Number(data.balance);
     }
 
     renderUser(state.user);
-    toast('+'+Number(data.awarded||1)+' FC Points');
 
     if(state.activity.normal_earned_today>=state.normalMax){
-      stopEarning(false);
+      state.earning=false;
+      if(state.earningTimer)clearInterval(state.earningTimer);
+      state.earningTimer=null;
+      updateEarningUI();
     }
   }catch(e){
-    stopEarning(false);
-    toast(e.message);
+    const message=String(e&&e.message||'');
+    if(/daily limit|limit reached|সীমা পূর্ণ/i.test(message)){
+      state.activity.normal_earned_today=state.normalMax;
+      state.earning=false;
+      if(state.earningTimer)clearInterval(state.earningTimer);
+      state.earningTimer=null;
+      updateEarningUI();
+    }else{
+      $('earningStatus').textContent='সংযোগে সাময়িক সমস্যা। স্বয়ংক্রিয়ভাবে আবার চেষ্টা চলছে।';
+      state.earnAccumulator=0;
+    }
   }finally{
     state.earningBusy=false;
   }
 }
 
-function stopEarning(showMessage){
-  if(state.earningTimer)clearInterval(state.earningTimer);
+function checkBangladeshMidnight(){
+  const today=bangladeshDay();
+  if(today===state.bdDay)return;
 
-  state.earningTimer=null;
-  state.earning=false;
+  state.bdDay=today;
   state.earnAccumulator=0;
 
-  const button=$('earningButton');
-  button.disabled=false;
-  button.textContent='Start earning';
-  button.className='btn primary full';
+  if(!state.initData)return;
 
-  if(showMessage)toast('Earning stopped');
+  refreshUser().then(()=>{
+    if(state.earningTimer)clearInterval(state.earningTimer);
+    state.earningTimer=null;
+    state.earning=false;
+
+    if(state.earningIntent){
+      startEarningSession();
+    }else{
+      updateEarningUI();
+    }
+  }).catch(()=>{
+    $('earningStatus').textContent='নতুন দিনের হিসাব আনতে সংযোগের অপেক্ষায় আছে।';
+  });
 }
+
+setInterval(checkBangladeshMidnight,15000);
 
 async function claimReward(type,button){
   if(type==='checkin'){
