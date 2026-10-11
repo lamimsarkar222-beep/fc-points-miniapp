@@ -98,8 +98,29 @@ app.use((req, res, next) => {
   next();
 });
 
+/*
+ * DAILY DATE FIX:
+ * Use Bangladesh local date instead of UTC.
+ * Daily activity resets according to Asia/Dhaka midnight.
+ */
+
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Dhaka",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+
+  const values = {};
+
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      values[part.type] = part.value;
+    }
+  }
+
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function fail(res, status, message) {
@@ -165,7 +186,9 @@ function verifyTelegramInitData(initData) {
 
   try {
     const user = JSON.parse(params.get("user") || "{}");
+
     if (!user.id) return null;
+
     return user;
   } catch {
     return null;
@@ -364,6 +387,7 @@ app.get("/health/db", async (req, res) => {
     res.json({ status: "ok", database: "connected" });
   } catch (e) {
     console.error("[HEALTH DB]", e);
+
     res.status(503).json({
       status: "error",
       database: "unavailable"
@@ -402,7 +426,6 @@ app.get("/api/user", telegramAuth, async (req, res) => {
     const user = await ensureUser(req.telegramUser);
     const activity = await getOrCreateActivity(user.telegram_id);
 
-    // Avoid requiring a Supabase relationship between user_badges and badges.
     const badges = await db(
       "user_badges",
       supabase
