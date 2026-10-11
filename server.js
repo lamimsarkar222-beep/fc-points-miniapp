@@ -1,1397 +1,1010 @@
-const express = require("express");
-const crypto = require("crypto");
-const path = require("path");
-const { createClient } = require("@supabase/supabase-js");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#101827">
+<title>FC Points</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#101827;--panel:#192538;--panel2:#202f45;--text:#f5f7fb;--muted:#9cacc2;--accent:#62e6b5;--line:#304158}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px Arial,sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.app{max-width:540px;margin:auto;padding:18px 15px 95px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.brand{font-size:22px;font-weight:800}
+.brand span{color:var(--accent)}
+.pill{background:var(--panel2);border:1px solid var(--line);border-radius:30px;padding:8px 12px;font-size:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:17px;margin-bottom:14px}
+.balance{background:linear-gradient(135deg,#204d4b,#1c3049);border-color:#34776c}
+.muted{color:var(--muted);font-size:13px}
+.amount{font-size:36px;font-weight:800;margin:9px 0}
+.section-title{font-size:18px;font-weight:750;margin:23px 0 12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.btn{border:0;border-radius:12px;padding:12px 15px;font-weight:700}
+.primary{background:var(--accent);color:#10251f}
+.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.danger{background:#542b36;color:#ffdfe2}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.full{width:100%;margin-top:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:14px}
+.tile strong{display:block;font-size:20px;margin:8px 0}
+.icon{font-size:23px}
+.progress{height:7px;border-radius:10px;background:#354258;overflow:hidden;margin:12px 0}
+.progress span{height:100%;display:block;background:var(--accent);width:0}
+.page{display:none}
+.page.active{display:block}
+.nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;background:#121d2c;border-top:1px solid var(--line);padding:9px 4px calc(9px + env(safe-area-inset-bottom));z-index:5}
+.nav button{flex:1;max-width:110px;border:0;background:none;color:var(--muted);padding:7px 2px;font-size:11px}
+.nav button.active{color:var(--accent)}
+.nav .ni{display:block;font-size:20px;margin-bottom:4px}
+.field{width:100%;background:#111c2b;border:1px solid var(--line);border-radius:10px;color:white;padding:12px;margin-top:7px}
+label{display:block;margin-top:14px;font-size:13px;color:var(--muted)}
+.notice{padding:11px;border-radius:10px;background:#26374b;color:#dce7f7;font-size:13px;margin-top:10px;overflow-wrap:anywhere}
+.item{padding:13px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.small{font-size:12px}
+.profile-avatar{width:54px;height:54px;border-radius:50%;background:#263b50;display:grid;place-items:center;font-size:24px;overflow:hidden}
+#profileName{overflow-wrap:anywhere}
+.profile-badges{display:inline-flex;align-items:center;gap:5px;margin-left:5px;vertical-align:middle}
+.profile-badge{display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;line-height:1;flex-shrink:0}
+.profile-badge.blue_tick{width:17px;height:17px;border-radius:50%;background:#2589ff;color:#fff}
+.profile-badge.blueberry{color:#a78bfa;font-size:17px}
+.profile-badge.green_berry{color:#35d399;font-size:17px}
+.profile-badge.black_vip{color:#f5f7fb;font-size:16px;text-shadow:0 0 5px #000}
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#e7fff5;color:#13271f;padding:12px 16px;border-radius:12px;z-index:10;display:none;max-width:90%;font-size:13px}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">FC <span>POINTS</span></div>
+  <div class="pill" id="connection">Connecting…</div>
+</header>
 
-const app = express();
-app.use(express.json({ limit: "100kb" }));
+<main>
+<section id="home" class="page active">
+  <div class="card balance">
+    <div class="muted">Your FC Points balance</div>
+    <div class="amount" id="balance">0 FC</div>
+    <div class="row">
+      <span class="muted" id="userGreeting">Welcome!</span>
+      <button class="btn secondary" onclick="showPage('profile')">My profile</button>
+    </div>
+  </div>
 
-app.get("/admin.html", (req, res) => {
-  res.sendFile(path.join(__dirname, "admin.html"));
-});
+  <div class="section-title">Normal Earning</div>
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="muted">Today's normal earnings</div>
+        <strong id="normalEarned">0 / 200 FC</strong>
+      </div>
+      <div class="icon">⏱️</div>
+    </div>
+    <div class="progress"><span id="normalProgress"></span></div>
+    <div class="muted">Earn gradually. Rewarded ads are optional.</div>
+    <button id="earningButton" class="btn primary full" onclick="toggleEarning()">Start earning</button>
+    <div id="earningStatus" class="notice">Normal earning gives 1 FC every 6 seconds, up to 200 FC daily.</div>
+  </div>
 
-const PORT = process.env.PORT || 3000;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const BOT_TOKEN = process.env.BOT_TOKEN;
+  <div class="section-title">Daily Rewards</div>
+  <div class="grid">
+    <div class="tile">
+      <div class="icon">🎟️</div><div class="muted">Ticket</div>
+      <strong>200 FC</strong><div class="small muted">4 rewarded ads × 50</div>
+      <button class="btn secondary full" onclick="claimReward('ticket',this)">Claim</button>
+    </div>
+    <div class="tile">
+      <div class="icon">🚀</div><div class="muted">Boost</div>
+      <strong>100 FC</strong><div class="small muted">4 rewarded ads × 25</div>
+      <button class="btn secondary full" onclick="claimReward('boost',this)">Claim</button>
+    </div>
+    <div class="tile">
+      <div class="icon">🎁</div><div class="muted">Personal Reward</div>
+      <strong>120 FC</strong><div class="small muted">12 rewarded ads × 10</div>
+      <button class="btn secondary full" onclick="claimReward('personal',this)">Claim</button>
+    </div>
+    <div class="tile">
+      <div class="icon">📅</div><div class="muted">Daily Check-in</div>
+      <strong>10 FC</strong><div class="small muted">Once a day</div>
+      <button class="btn secondary full" onclick="claimReward('checkin',this)">Check in</button>
+    </div>
+    <div class="tile">
+      <div class="icon">✅</div><div class="muted">Daily Task</div>
+      <strong>20 FC</strong><div class="small muted">Daily task status</div>
+      <button class="btn secondary full" onclick="showPage('tasks')">View tasks</button>
+    </div>
+    <div class="tile">
+      <div class="icon">📊</div><div class="muted">Daily Total</div>
+      <strong>650 FC</strong><div class="small muted">Maximum planned daily rewards</div>
+    </div>
+  </div>
 
-const FRONTEND_URL = (
-  process.env.FRONTEND_URL ||
-  "https://fc-points-miniapp.onrender.com"
-).trim().replace(/\/+$/, "");
+  <div class="section-title">About FC Points</div>
+  <div class="card">
+    <div class="muted">Earn FC Points through available activities. Rewarded ads are optional.</div>
+    <button class="btn secondary full" onclick="showPage('about')">About & Support</button>
+  </div>
+</section>
 
-const ADMIN_TELEGRAM_ID = String(process.env.ADMIN_TELEGRAM_ID || "");
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
+<section id="tasks" class="page">
+  <div class="section-title">Daily Tasks</div>
+  <div class="card">
+    <div class="row"><strong>Daily goal</strong><span class="pill">20 FC</span></div>
+    <p class="muted">Daily task status is checked with the server.</p>
+    <div id="dailyTaskStatus" class="notice">Loading task status…</div>
+    <button class="btn secondary full" onclick="loadTaskStatus()">Refresh task status</button>
+  </div>
+  <div class="card">
+    <strong>Social Tasks</strong>
+    <p class="muted">Join the configured Telegram channel, then verify membership to request the reward.</p>
+    <div id="socialTasks"><div class="notice">Loading social tasks…</div></div>
+  </div>
+</section>
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !BOT_TOKEN) {
-  console.error("Missing required environment variables.");
-  process.exit(1);
-}
+<section id="shop" class="page">
+  <div class="section-title">VIP Shop</div>
+  <div class="card">
+    <p class="muted">Choose a badge. Purchase requests require admin approval.</p>
+    <div id="shopItems"></div>
+  </div>
+</section>
 
-const supabase = createClient(
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false
-    }
-  }
-);
+<section id="withdraw" class="page">
+  <div class="section-title">Withdraw FC Points</div>
+  <div class="card">
+    <div class="row"><span class="muted">Current balance</span><strong id="withdrawBalance">0 FC</strong></div>
+    <div class="notice">Minimum withdrawal: 20,000 FC Points. Requests are subject to review.</div>
+    <form id="withdrawForm">
+      <label for="paymentMethod">Payment method</label>
+      <select class="field" id="paymentMethod" required>
+        <option value="">Select a method</option>
+        <option value="bKash">bKash</option>
+        <option value="Nagad">Nagad</option>
+        <option value="Binance">Binance</option>
+      </select>
+      <label for="paymentIdentifier">Payment number or ID</label>
+      <input class="field" id="paymentIdentifier" required maxlength="100" placeholder="Enter payment details">
+      <label for="withdrawAmount">Amount (FC Points)</label>
+      <input class="field" id="withdrawAmount" required type="number" min="20000" step="1" placeholder="Minimum 20000">
+      <button class="btn primary full" id="withdrawButton" type="submit">Submit withdrawal request</button>
+    </form>
+    <div id="withdrawMessage" class="notice" hidden></div>
+  </div>
+  <div class="card">
+    <strong>Recent withdrawal requests</strong>
+    <div id="withdrawalHistory" class="notice">Loading…</div>
+  </div>
+</section>
 
-const DAILY_MAX = 650;
-const NORMAL_MAX = 200;
-const CHECKIN_REWARD = 10;
-const DAILY_TASK_REWARD = 20;
+<section id="profile" class="page">
+  <div class="section-title">My Profile</div>
+  <div class="card">
+    <div class="row">
+      <div class="profile-avatar" id="avatar">👤</div>
+      <div style="flex:1;min-width:0">
+        <strong id="profileName">Telegram User</strong>
+        <div class="muted" id="profileUsername">Telegram user</div>
+        <div class="small muted" id="profileId"></div>
+      </div>
+    </div>
+    <label for="customName">Display name</label>
+    <input class="field" id="customName" maxlength="40" placeholder="Your display name">
+    <button class="btn primary full" onclick="saveProfile(this)">Save profile</button>
+    <div class="notice">Your Telegram identity is verified by the backend. Approved badges appear beside your profile name.</div>
+    <div id="badgeList" class="notice">Loading badges…</div>
+  </div>
+  <div class="card">
+    <div class="muted">FC Points balance</div>
+    <div class="amount" id="profileBalance">0 FC</div>
+  </div>
+</section>
 
-const BADGES = {
-  blueberry: { name: "Blueberry", price: 5000 },
-  green_berry: { name: "Green Berry", price: 10000 },
-  blue_tick: { name: "Verified Blue Tick", price: 15000 },
-  black_vip: { name: "Black VIP", price: 25000 }
+<section id="about" class="page">
+  <div class="section-title">About & Support</div>
+  <div class="card">
+    <strong>About FC Points</strong>
+    <p class="muted">FC Points is a rewards mini app. Earn through supported activities and check your balance in your profile.</p>
+  </div>
+  <div class="card">
+    <strong>Support</strong>
+    <p class="muted">The official support contact has not been configured yet.</p>
+  </div>
+</section>
+</main>
+</div>
+
+<nav class="nav">
+  <button class="active" data-page="home" onclick="showPage('home',this)"><span class="ni">⌂</span>Home</button>
+  <button data-page="tasks" onclick="showPage('tasks',this)"><span class="ni">✓</span>Tasks</button>
+  <button data-page="shop" onclick="showPage('shop',this)"><span class="ni">♢</span>Shop</button>
+  <button data-page="withdraw" onclick="showPage('withdraw',this)"><span class="ni">⇧</span>Withdraw</button>
+  <button data-page="profile" onclick="showPage('profile',this)"><span class="ni">◉</span>Profile</button>
+</nav>
+<div id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+
+const API_BASE='https://fp-points-backend.onrender.com';
+const tg=window.Telegram&&window.Telegram.WebApp;
+
+const state={
+  initData:tg&&tg.initData?tg.initData:'',
+  user:null,
+  activity:null,
+  earning:false,
+  earningTimer:null,
+  earnAccumulator:0,
+  earningBusy:false,
+  earningIntent:false,
+  dailyLimitReached:false,
+  bdDay:'',
+  normalMax:200,
+  profileRefreshBusy:false
 };
 
-/* CORS */
+const $=id=>document.getElementById(id);
+const EARNING_KEY='fc_points_normal_earning_enabled';
 
-app.use((req, res, next) => {
-  const origin = String(req.headers.origin || "")
-    .trim()
-    .replace(/\/+$/, "");
-
-  const allowedOrigins = [
-    FRONTEND_URL,
-    "https://fc-points-miniapp.onrender.com",
-    "https://found-points-app.onrender.com"
-  ];
-
-  const originAllowed = allowedOrigins.includes(origin);
-
-  console.log(
-    "[CORS]",
-    req.method,
-    req.path,
-    "origin=",
-    origin || "(none)",
-    "allowed=",
-    originAllowed
-  );
-
-  if (originAllowed) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-  }
-
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, X-Telegram-Init-Data, X-Admin-Id, X-Admin-Password"
-  );
-
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PATCH, DELETE, OPTIONS"
-  );
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-
-  next();
-});
-
-/*
- * DAILY DATE FIX:
- * Use Bangladesh local date instead of UTC.
- * Daily activity resets according to Asia/Dhaka midnight.
- */
-
-function today() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Dhaka",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
+function bangladeshDay(){
+  const parts=new Intl.DateTimeFormat('en-CA',{
+    timeZone:'Asia/Dhaka',
+    year:'numeric',
+    month:'2-digit',
+    day:'2-digit'
   }).formatToParts(new Date());
+  const values={};
+  parts.forEach(part=>{values[part.type]=part.value;});
+  return values.year+'-'+values.month+'-'+values.day;
+}
 
-  const values = {};
+function savedEarningIntent(){
+  try{return localStorage.getItem(EARNING_KEY)==='true';}
+  catch(e){return false;}
+}
 
-  for (const part of parts) {
-    if (part.type !== "literal") {
-      values[part.type] = part.value;
+function saveEarningIntent(enabled){
+  state.earningIntent=!!enabled;
+  try{localStorage.setItem(EARNING_KEY,enabled?'true':'false');}
+  catch(e){}
+}
+
+function updateEarningUI(){
+  const button=$('earningButton');
+  const earned=Number(state.activity&&state.activity.normal_earned_today||0);
+  const atLimit=earned>=state.normalMax;
+  state.dailyLimitReached=atLimit;
+
+  if(atLimit){
+    button.disabled=true;
+    button.textContent='Daily limit reached';
+    button.className='btn secondary full';
+    $('earningStatus').textContent='আজকের ২০০ FC সীমা পূর্ণ হয়েছে। বাংলাদেশ সময় রাত ১২টায় আবার চালু হবে।';
+  }else if(state.earning){
+    button.disabled=true;
+    button.textContent='Earning active ✓';
+    button.className='btn primary full';
+    $('earningStatus').textContent='Normal Earning চালু আছে। পয়েন্ট ব্যালেন্সে যোগ হবে—কোনো পপ-আপ দেখানো হবে না।';
+  }else if(state.earningIntent){
+    button.disabled=true;
+    button.textContent='Earning enabled ✓';
+    button.className='btn primary full';
+    $('earningStatus').textContent='সার্ভারে সাময়িক সমস্যা হলে স্বয়ংক্রিয়ভাবে আবার চেষ্টা করা হবে।';
+  }else{
+    button.disabled=false;
+    button.textContent='Start earning';
+    button.className='btn primary full';
+    $('earningStatus').textContent='Normal earning gives 1 FC every 6 seconds, up to 200 FC daily.';
+  }
+}
+
+if(tg){
+  tg.ready();
+  tg.expand();
+  try{
+    tg.setHeaderColor('#101827');
+    tg.setBackgroundColor('#101827');
+  }catch(e){}
+}
+
+function toast(message){
+  const el=$('toast');
+  el.textContent=String(message||'Something went wrong.');
+  el.style.display='block';
+  clearTimeout(toast.timer);
+  toast.timer=setTimeout(()=>el.style.display='none',3500);
+}
+
+function setConnection(message){
+  $('connection').textContent=message;
+}
+
+function setBusy(button,busy,label){
+  if(!button)return;
+  if(busy){
+    if(!button.dataset.oldText)button.dataset.oldText=button.textContent;
+    button.textContent=label||'Please wait…';
+    button.disabled=true;
+  }else{
+    button.disabled=false;
+    if(button.dataset.oldText){
+      button.textContent=button.dataset.oldText;
+      delete button.dataset.oldText;
     }
   }
-
-  return `${values.year}-${values.month}-${values.day}`;
 }
 
-function fail(res, status, message) {
-  return res.status(status).json({ error: message });
+async function api(path,options){
+  options=options||{};
+
+  if(!state.initData){
+    throw new Error('অ্যাকাউন্ট চালু করতে Telegram Mini App থেকে অ্যাপটি খুলুন।');
+  }
+
+  let response;
+
+  try{
+    response=await fetch(API_BASE+path,{
+      method:options.method||'GET',
+      headers:{
+        'Content-Type':'application/json',
+        'X-Telegram-Init-Data':state.initData
+      },
+      body:options.body===undefined?undefined:JSON.stringify(options.body)
+    });
+  }catch(e){
+    throw new Error('সার্ভারের সঙ্গে সংযোগ হচ্ছে না। ইন্টারনেট ও Backend চালু আছে কি না দেখুন।');
+  }
+
+  let data;
+
+  try{
+    data=await response.json();
+  }catch(e){
+    throw new Error('সার্ভার থেকে সঠিক উত্তর আসেনি।');
+  }
+
+  if(!response.ok||data.error||data.status==='error'){
+    throw new Error(data.error||data.message||'অনুরোধটি সম্পন্ন হয়নি।');
+  }
+
+  return data;
 }
 
-async function db(table, query) {
-  const result = await query;
-
-  if (result.error) {
-    console.error(`[DATABASE ERROR: ${table}]`, result.error);
-    throw new Error(
-      `Database operation failed: ${table} — ${result.error.message}`
-    );
-  }
-
-  return result.data;
+function points(user){
+  return Number(user&&user.balance!=null?user.balance:0);
 }
 
-function verifyTelegramInitData(initData) {
-  if (!initData || typeof initData !== "string") return null;
+const BADGE_STYLES={
+  blue_tick:{symbol:'✓',className:'blue_tick',title:'Verified Blue Tick'},
+  blueberry:{symbol:'●',className:'blueberry',title:'Blueberry'},
+  green_berry:{symbol:'●',className:'green_berry',title:'Green Berry'},
+  black_vip:{symbol:'◆',className:'black_vip',title:'Black VIP'}
+};
 
-  const params = new URLSearchParams(initData);
-  const hash = params.get("hash");
+function renderProfileBadges(name,badges){
+  const profileName=$('profileName');
+  profileName.replaceChildren(document.createTextNode(name));
 
-  if (!hash) return null;
+  const validBadges=Array.isArray(badges)?badges:[];
 
-  params.delete("hash");
+  if(!validBadges.length)return;
 
-  const pairs = [];
+  const badgeGroup=document.createElement('span');
+  badgeGroup.className='profile-badges';
 
-  for (const [key, value] of params.entries()) {
-    pairs.push(`${key}=${value}`);
-  }
+  validBadges.forEach(function(item){
+    const key=String(item.key||item.badge_key||'');
+    const style=BADGE_STYLES[key]||{
+      symbol:'✓',
+      className:'blue_tick',
+      title:item.name||key
+    };
 
-  pairs.sort();
+    const badge=document.createElement('span');
+    badge.className='profile-badge '+style.className;
+    badge.textContent=style.symbol;
+    badge.title=item.name||style.title;
+    badge.setAttribute('aria-label',item.name||style.title);
+    badge.setAttribute('role','img');
 
-  const dataCheckString = pairs.join("\n");
-
-  const secretKey = crypto
-    .createHmac("sha256", "WebAppData")
-    .update(BOT_TOKEN)
-    .digest();
-
-  const expectedHash = crypto
-    .createHmac("sha256", secretKey)
-    .update(dataCheckString)
-    .digest("hex");
-
-  const a = Buffer.from(expectedHash, "hex");
-  const b = Buffer.from(hash, "hex");
-
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-    return null;
-  }
-
-  const authDate = Number(params.get("auth_date") || 0);
-  const now = Math.floor(Date.now() / 1000);
-
-  if (!authDate || now - authDate > 86400 || authDate > now + 60) {
-    return null;
-  }
-
-  try {
-    const user = JSON.parse(params.get("user") || "{}");
-
-    if (!user.id) return null;
-
-    return user;
-  } catch {
-    return null;
-  }
-}
-
-function telegramAuth(req, res, next) {
-  const initData =
-    req.get("X-Telegram-Init-Data") || req.body?.initData;
-
-  const user = verifyTelegramInitData(initData);
-
-  if (!user) {
-    return fail(
-      res,
-      401,
-      "Telegram পরিচয় যাচাই করা যায়নি। Telegram Mini App থেকে খুলুন।"
-    );
-  }
-
-  req.telegramUser = user;
-  next();
-}
-
-function adminAuth(req, res, next) {
-  const id = String(req.get("X-Admin-Id") || "");
-  const password = String(req.get("X-Admin-Password") || "");
-
-  if (
-    !ADMIN_TELEGRAM_ID ||
-    !ADMIN_PASSWORD ||
-    id !== ADMIN_TELEGRAM_ID ||
-    password !== ADMIN_PASSWORD
-  ) {
-    return fail(res, 403, "Admin access denied.");
-  }
-
-  next();
-}
-
-async function getUser(telegramId) {
-  return db(
-    "users",
-    supabase
-      .from("users")
-      .select("*")
-      .eq("telegram_id", String(telegramId))
-      .maybeSingle()
-  );
-}
-
-async function ensureUser(tg) {
-  let user = await getUser(tg.id);
-
-  if (user) {
-    if (user.is_blocked) {
-      throw new Error("এই অ্যাকাউন্টটি ব্লক করা হয়েছে।");
-    }
-
-    return user;
-  }
-
-  return db(
-    "users",
-    supabase
-      .from("users")
-      .insert({
-        telegram_id: String(tg.id),
-        username: tg.username || null,
-        first_name: tg.first_name || "User",
-        display_name: tg.first_name || "User",
-        balance: 0,
-        is_blocked: false,
-        created_at: new Date().toISOString()
-      })
-      .select("*")
-      .single()
-  );
-}
-
-async function getOrCreateActivity(telegramId) {
-  let row = await db(
-    "daily_activity",
-    supabase
-      .from("daily_activity")
-      .select("*")
-      .eq("telegram_id", String(telegramId))
-      .eq("activity_date", today())
-      .maybeSingle()
-  );
-
-  if (!row) {
-    row = await db(
-      "daily_activity",
-      supabase
-        .from("daily_activity")
-        .insert({
-          telegram_id: String(telegramId),
-          activity_date: today(),
-          normal_earned: 0,
-          total_earned: 0,
-          daily_task_claimed: false,
-          checkin_claimed: false
-        })
-        .select("*")
-        .single()
-    );
-  }
-
-  return row;
-}
-
-async function addTransaction(
-  telegramId,
-  amount,
-  type,
-  description,
-  reference = null
-) {
-  return db(
-    "transactions",
-    supabase.from("transactions").insert({
-      telegram_id: String(telegramId),
-      amount,
-      type,
-      description,
-      reference_id: reference,
-      created_at: new Date().toISOString()
-    })
-  );
-}
-
-async function addPoints(telegramId, amount, type, description) {
-  if (!Number.isInteger(amount) || amount <= 0) {
-    throw new Error("Invalid reward amount.");
-  }
-
-  const user = await getUser(telegramId);
-
-  if (!user || user.is_blocked) {
-    throw new Error("User unavailable.");
-  }
-
-  const activity = await getOrCreateActivity(telegramId);
-
-  if (Number(activity.total_earned || 0) + amount > DAILY_MAX) {
-    throw new Error("আজকের 650 FP দৈনিক সীমা পূর্ণ হয়েছে।");
-  }
-
-  const newBalance = Number(user.balance || 0) + amount;
-
-  await db(
-    "users",
-    supabase
-      .from("users")
-      .update({
-        balance: newBalance,
-        updated_at: new Date().toISOString()
-      })
-      .eq("telegram_id", String(telegramId))
-  );
-
-  await db(
-    "daily_activity",
-    supabase
-      .from("daily_activity")
-      .update({
-        total_earned: Number(activity.total_earned || 0) + amount
-      })
-      .eq("telegram_id", String(telegramId))
-      .eq("activity_date", today())
-  );
-
-  await addTransaction(telegramId, amount, type, description);
-
-  return { balance: newBalance, awarded: amount };
-}
-
-/* HEALTH CHECK */
-
-app.get("/", (req, res) => {
-  res.json({
-    status: "ok",
-    service: "FP Points Backend",
-    version: "fp-2.1"
+    badgeGroup.appendChild(badge);
   });
-});
 
-app.get("/health/db", async (req, res) => {
-  try {
-    await db(
-      "users",
-      supabase.from("users").select("id").limit(1)
-    );
+  profileName.appendChild(badgeGroup);
+}
 
-    res.json({ status: "ok", database: "connected" });
-  } catch (e) {
-    console.error("[HEALTH DB]", e);
+function renderUser(user){
+  if(!user)return;
 
-    res.status(503).json({
-      status: "error",
-      database: "unavailable"
-    });
+  state.user=Object.assign({},state.user||{},user);
+
+  const u=state.user;
+  const amount=points(u);
+  const tgUser=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user;
+
+  $('balance').textContent=amount.toLocaleString()+' FC';
+  $('withdrawBalance').textContent=amount.toLocaleString()+' FC';
+  $('profileBalance').textContent=amount.toLocaleString()+' FC';
+
+  const name=u.display_name||
+    [tgUser&&tgUser.first_name,tgUser&&tgUser.last_name].filter(Boolean).join(' ')||
+    u.first_name||
+    'FC Points User';
+
+  $('userGreeting').textContent='Welcome, '+name;
+
+  const userBadges=Array.isArray(u.badges)?u.badges:[];
+  renderProfileBadges(name,userBadges);
+
+  $('profileUsername').textContent=u.username?'@'+u.username:
+    (tgUser&&tgUser.username?'@'+tgUser.username:'Telegram user');
+
+  $('profileId').textContent=u.telegram_id?
+    'Telegram ID: '+u.telegram_id:
+    (tgUser&&tgUser.id?'Telegram ID: '+tgUser.id:'');
+
+  if(document.activeElement!==$('customName')){
+    $('customName').value=u.display_name||'';
   }
-});
 
-/* REGISTRATION */
+  const earned=Number(
+    state.activity&&state.activity.normal_earned_today!=null
+      ?state.activity.normal_earned_today
+      :0
+  );
 
-app.post("/api/register", async (req, res) => {
-  try {
-    const tg = verifyTelegramInitData(req.body?.initData);
+  $('normalEarned').textContent=earned+' / '+state.normalMax+' FC';
+  $('normalProgress').style.width=Math.min(100,earned/state.normalMax*100)+'%';
 
-    if (!tg) return fail(res, 401, "Invalid Telegram initData.");
+  $('badgeList').textContent=userBadges.length
+    ?'Your badges: '+userBadges.map(b=>b.name||b.key||b.badge_key).join(', ')
+    :'No approved VIP badges yet.';
 
-    const user = await ensureUser(tg);
+  updateEarningUI();
+}
 
-    res.json({
-      success: true,
-      user: {
-        telegram_id: user.telegram_id,
-        balance: user.balance,
-        display_name: user.display_name
+function showPage(id,button){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+
+  const page=$(id);
+  if(page)page.classList.add('active');
+
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+
+  const nav=button||document.querySelector('.nav button[data-page="'+id+'"]');
+  if(nav)nav.classList.add('active');
+
+  window.scrollTo({top:0,behavior:'smooth'});
+
+  if(id==='shop')loadShop();
+  if(id==='tasks'){
+    loadTaskStatus();
+    loadSocialTasks();
+  }
+  if(id==='withdraw')loadWithdrawals();
+}
+
+window.showPage=showPage;
+
+async function refreshUser(){
+  const data=await api('/api/user');
+
+  state.activity={
+    normal_earned_today:Number(data.user&&data.user.normal_earned_today||0),
+    todayEarned:Number(data.user&&data.user.todayEarned||0)
+  };
+
+  renderUser(data.user);
+  return data.user;
+}
+
+async function loadApp(){
+  if(!state.initData){
+    setConnection('Open in Telegram');
+    $('earningStatus').textContent='Telegram Mini App থেকে খুললে লগইন করা যাবে।';
+    $('earningButton').disabled=true;
+    document.querySelectorAll('.nav button').forEach(b=>b.disabled=true);
+    toast('অ্যাপটি Telegram bot-এর ভিতর থেকে খুলুন।');
+    return;
+  }
+
+  setConnection('Connecting…');
+
+  try{
+    await api('/api/register',{
+      method:'POST',
+      body:{initData:state.initData}
+    });
+
+    await refreshUser();
+    setConnection('Connected');
+
+    state.bdDay=bangladeshDay();
+    state.earningIntent=savedEarningIntent();
+    updateEarningUI();
+
+    if(state.earningIntent){
+      await startEarningSession();
+    }
+
+    await loadTaskStatus();
+    await loadSocialTasks();
+  }catch(e){
+    setConnection('Connection issue');
+    toast(e.message);
+    $('earningStatus').textContent=e.message;
+  }
+}
+
+async function toggleEarning(){
+  if(state.earningIntent)return;
+
+  if(!state.user){
+    $('earningStatus').textContent='অ্যাকাউন্ট লোড হওয়া পর্যন্ত অপেক্ষা করুন।';
+    return;
+  }
+
+  saveEarningIntent(true);
+  updateEarningUI();
+  await startEarningSession();
+}
+
+window.toggleEarning=toggleEarning;
+
+async function startEarningSession(){
+  if(state.earning||!state.earningIntent||!state.user)return;
+
+  try{
+    const data=await api('/api/earning/start',{
+      method:'POST',
+      body:{}
+    });
+
+    state.activity=state.activity||{};
+    state.activity.normal_earned_today=Number(data.normalEarnedToday||0);
+
+    if(state.activity.normal_earned_today>=state.normalMax){
+      updateEarningUI();
+      return;
+    }
+
+    state.earning=true;
+    state.earnAccumulator=0;
+    updateEarningUI();
+
+    if(state.earningTimer)clearInterval(state.earningTimer);
+    state.earningTimer=setInterval(earningTick,1000);
+  }catch(e){
+    state.earning=false;
+    updateEarningUI();
+    $('earningStatus').textContent='সার্ভারে সাময়িক সমস্যা হচ্ছে। স্বয়ংক্রিয়ভাবে আবার চেষ্টা করা হবে।';
+    setTimeout(()=>{
+      if(state.earningIntent&&!state.earning&&!state.dailyLimitReached){
+        startEarningSession();
       }
-    });
-  } catch (e) {
-    console.error("[REGISTER ERROR]", e);
-    fail(res, 400, e.message);
+    },10000);
   }
-});
+}
 
-/* USER PROFILE */
+async function earningTick(){
+  if(!state.earning||state.earningBusy)return;
 
-app.get("/api/user", telegramAuth, async (req, res) => {
-  try {
-    const user = await ensureUser(req.telegramUser);
-    const activity = await getOrCreateActivity(user.telegram_id);
-
-    const badges = await db(
-      "user_badges",
-      supabase
-        .from("user_badges")
-        .select("badge_key")
-        .eq("telegram_id", String(user.telegram_id))
-    );
-
-    res.json({
-      user: {
-        ...user,
-        todayEarned: Number(activity.total_earned || 0),
-        normal_earned_today: Number(activity.normal_earned || 0),
-        badges: (badges || []).map((b) => ({
-          key: b.badge_key,
-          name: BADGES[b.badge_key]?.name || b.badge_key
-        }))
-      }
-    });
-  } catch (e) {
-    console.error("[USER PROFILE ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-app.patch(
-  "/api/profile/display-name",
-  telegramAuth,
-  async (req, res) => {
-    try {
-      const displayName = String(req.body?.displayName || "").trim();
-
-      if (!displayName || displayName.length > 40) {
-        return fail(res, 400, "নাম ১ থেকে ৪০ অক্ষরের মধ্যে হতে হবে।");
-      }
-
-      await ensureUser(req.telegramUser);
-
-      const user = await db(
-        "users",
-        supabase
-          .from("users")
-          .update({
-            display_name: displayName,
-            updated_at: new Date().toISOString()
-          })
-          .eq("telegram_id", String(req.telegramUser.id))
-          .select("*")
-          .single()
-      );
-
-      res.json({ success: true, user });
-    } catch (e) {
-      console.error("[PROFILE NAME ERROR]", e);
-      fail(res, 400, e.message);
+  const today=bangladeshDay();
+  if(today!==state.bdDay){
+    state.bdDay=today;
+    state.earnAccumulator=0;
+    try{
+      await refreshUser();
+    }catch(e){}
+    if(state.earningIntent){
+      state.earning=false;
+      if(state.earningTimer)clearInterval(state.earningTimer);
+      state.earningTimer=null;
+      await startEarningSession();
     }
+    return;
   }
-);
 
-/* NORMAL EARNING */
-
-app.post("/api/earning/start", telegramAuth, async (req, res) => {
-  try {
-    const user = await ensureUser(req.telegramUser);
-    const activity = await getOrCreateActivity(user.telegram_id);
-
-    res.json({
-      success: true,
-      normalEarnedToday: Number(activity.normal_earned || 0),
-      remaining: Math.max(
-        0,
-        NORMAL_MAX - Number(activity.normal_earned || 0)
-      )
-    });
-  } catch (e) {
-    console.error("[EARNING START ERROR]", e);
-    fail(res, 400, e.message);
+  const earned=Number(state.activity&&state.activity.normal_earned_today||0);
+  if(earned>=state.normalMax){
+    state.earning=false;
+    if(state.earningTimer)clearInterval(state.earningTimer);
+    state.earningTimer=null;
+    updateEarningUI();
+    return;
   }
-});
 
-app.post("/api/earning/claim", telegramAuth, async (req, res) => {
-  try {
-    const user = await ensureUser(req.telegramUser);
-    const activity = await getOrCreateActivity(user.telegram_id);
+  state.earnAccumulator++;
+  if(state.earnAccumulator<6)return;
 
-    if (Number(activity.normal_earned || 0) >= NORMAL_MAX) {
-      return fail(res, 400, "Normal earning daily limit reached.");
-    }
+  state.earningBusy=true;
+  state.earnAccumulator=0;
 
-    if (Number(activity.total_earned || 0) >= DAILY_MAX) {
-      return fail(res, 400, "Daily earning limit reached.");
-    }
-
-    const reward = 1;
-
-    const result = await addPoints(
-      user.telegram_id,
-      reward,
-      "normal_earning",
-      "Normal earning"
-    );
-
-    await db(
-      "daily_activity",
-      supabase
-        .from("daily_activity")
-        .update({
-          normal_earned: Number(activity.normal_earned || 0) + reward
-        })
-        .eq("telegram_id", String(user.telegram_id))
-        .eq("activity_date", today())
-    );
-
-    console.log("[EARNING CLAIM SUCCESS]", {
-      telegramId: String(user.telegram_id),
-      awarded: result.awarded,
-      balance: result.balance
+  try{
+    const data=await api('/api/earning/claim',{
+      method:'POST',
+      body:{}
     });
 
-    res.json({
-      success: true,
-      awarded: result.awarded,
-      balance: result.balance,
-      normalEarnedToday: Number(activity.normal_earned || 0) + reward
-    });
-  } catch (e) {
-    console.error("[EARNING CLAIM ERROR]", e);
-    fail(res, 400, e.message);
+    state.activity=state.activity||{};
+    state.activity.normal_earned_today=Number(data.normalEarnedToday!=null?data.normalEarnedToday:earned+1);
+
+    if(state.user&&data.balance!=null){
+      state.user.balance=Number(data.balance);
+    }
+
+    renderUser(state.user);
+
+    if(state.activity.normal_earned_today>=state.normalMax){
+      state.earning=false;
+      if(state.earningTimer)clearInterval(state.earningTimer);
+      state.earningTimer=null;
+      updateEarningUI();
+    }
+  }catch(e){
+    const message=String(e&&e.message||'');
+    if(/daily limit|limit reached|সীমা পূর্ণ/i.test(message)){
+      state.activity.normal_earned_today=state.normalMax;
+      state.earning=false;
+      if(state.earningTimer)clearInterval(state.earningTimer);
+      state.earningTimer=null;
+      updateEarningUI();
+    }else{
+      $('earningStatus').textContent='সংযোগে সাময়িক সমস্যা। স্বয়ংক্রিয়ভাবে আবার চেষ্টা চলছে।';
+      state.earnAccumulator=0;
+    }
+  }finally{
+    state.earningBusy=false;
+  }
+}
+
+function checkBangladeshMidnight(){
+  const today=bangladeshDay();
+  if(today===state.bdDay)return;
+
+  state.bdDay=today;
+  state.earnAccumulator=0;
+
+  if(!state.initData)return;
+
+  refreshUser().then(()=>{
+    if(state.earningTimer)clearInterval(state.earningTimer);
+    state.earningTimer=null;
+    state.earning=false;
+
+    if(state.earningIntent){
+      startEarningSession();
+    }else{
+      updateEarningUI();
+    }
+  }).catch(()=>{
+    $('earningStatus').textContent='নতুন দিনের হিসাব আনতে সংযোগের অপেক্ষায় আছে।';
+  });
+}
+
+setInterval(checkBangladeshMidnight,15000);
+
+/* APPROVED BADGE PROFILE REFRESH */
+async function refreshProfileBadges(){
+  if(!state.initData||state.profileRefreshBusy)return;
+
+  if(document.visibilityState==='hidden')return;
+
+  state.profileRefreshBusy=true;
+
+  try{
+    await refreshUser();
+  }catch(e){
+    // Keep the existing profile visible if the network is temporarily unavailable.
+  }finally{
+    state.profileRefreshBusy=false;
+  }
+}
+
+setInterval(refreshProfileBadges,20000);
+
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'){
+    refreshProfileBadges();
   }
 });
 
-/* CHECK-IN */
+async function claimReward(type,button){
+  if(type==='checkin'){
+    setBusy(button,true,'Checking in…');
 
-app.post("/api/checkin", telegramAuth, async (req, res) => {
-  try {
-    const user = await ensureUser(req.telegramUser);
-    const activity = await getOrCreateActivity(user.telegram_id);
+    try{
+      const data=await api('/api/checkin',{
+        method:'POST',
+        body:{}
+      });
 
-    if (activity.checkin_claimed) {
-      return fail(res, 400, "আজকের চেক-ইন ইতিমধ্যে নেওয়া হয়েছে।");
+      await refreshUser();
+      await loadTaskStatus();
+
+      toast('+'+Number(data.awarded||10)+' FC Points');
+    }catch(e){
+      toast(e.message);
+    }finally{
+      setBusy(button,false);
     }
 
-    if (Number(activity.total_earned || 0) + CHECKIN_REWARD > DAILY_MAX) {
-      return fail(res, 400, "আজকের দৈনিক সীমা পূর্ণ হয়েছে।");
-    }
-
-    const result = await addPoints(
-      user.telegram_id,
-      CHECKIN_REWARD,
-      "daily_checkin",
-      "Daily check-in"
-    );
-
-    await db(
-      "daily_activity",
-      supabase
-        .from("daily_activity")
-        .update({ checkin_claimed: true })
-        .eq("telegram_id", String(user.telegram_id))
-        .eq("activity_date", today())
-    );
-
-    res.json({
-      success: true,
-      awarded: result.awarded,
-      balance: result.balance
-    });
-  } catch (e) {
-    console.error("[CHECKIN ERROR]", e);
-    fail(res, 400, e.message);
+    return;
   }
-});
 
-app.get("/api/tasks/status", telegramAuth, async (req, res) => {
-  try {
-    const user = await ensureUser(req.telegramUser);
-    const activity = await getOrCreateActivity(user.telegram_id);
-
-    res.json({
-      checkinClaimed: Boolean(activity.checkin_claimed),
-      dailyTaskCompleted: Boolean(activity.daily_task_claimed),
-      normalEarnedToday: Number(activity.normal_earned || 0),
-      todayEarned: Number(activity.total_earned || 0),
-      dailyMaximum: DAILY_MAX
-    });
-  } catch (e) {
-    console.error("[TASK STATUS ERROR]", e);
-    fail(res, 400, e.message);
+  if(type==='task'){
+    showPage('tasks');
+    return;
   }
-});
 
-/* TRANSACTION HISTORY */
+  toast('এই Reward-এর জন্য AdsGram-এর verified server integration এখনো চালু নেই।');
+}
 
-app.get("/api/transactions", telegramAuth, async (req, res) => {
-  try {
-    const rows = await db(
-      "transactions",
-      supabase
-        .from("transactions")
-        .select("*")
-        .eq("telegram_id", String(req.telegramUser.id))
-        .order("created_at", { ascending: false })
-        .limit(50)
-    );
+window.claimReward=claimReward;
 
-    res.json({ transactions: rows || [] });
-  } catch (e) {
-    console.error("[TRANSACTIONS ERROR]", e);
-    fail(res, 400, e.message);
+async function loadTaskStatus(){
+  if(!state.initData)return;
+
+  const el=$('dailyTaskStatus');
+
+  try{
+    const data=await api('/api/tasks/status');
+
+    el.textContent=
+      'আজকের মোট আয়: '+Number(data.todayEarned||0)+' / '+
+      Number(data.dailyMaximum||650)+' FC. '+
+      (data.checkinClaimed?'Daily check-in নেওয়া হয়েছে।':'Daily check-in এখনো নেওয়া হয়নি।')+' '+
+      (data.dailyTaskCompleted?'Daily task সম্পন্ন হয়েছে।':'Daily task এখনো সম্পন্ন হয়নি।');
+  }catch(e){
+    el.textContent=e.message;
   }
-});
+}
 
-/* SOCIAL TASKS */
+window.loadTaskStatus=loadTaskStatus;
 
-app.get("/api/social-tasks", telegramAuth, async (req, res) => {
-  try {
-    const tasks = await db(
-      "social_tasks",
-      supabase
-        .from("social_tasks")
-        .select("*")
-        .eq("enabled", true)
-        .order("created_at", { ascending: false })
-    );
+async function loadSocialTasks(){
+  if(!state.initData)return;
 
-    res.json({ tasks: tasks || [] });
-  } catch (e) {
-    console.error("[SOCIAL TASKS ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
+  const container=$('socialTasks');
+  container.textContent='Loading…';
 
-app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
-  try {
-    const user = await ensureUser(req.telegramUser);
-    const taskId = String(req.body?.taskId || "");
+  try{
+    const data=await api('/api/social-tasks');
+    container.innerHTML='';
 
-    const task = await db(
-      "social_tasks",
-      supabase
-        .from("social_tasks")
-        .select("*")
-        .eq("id", taskId)
-        .eq("enabled", true)
-        .maybeSingle()
-    );
-
-    if (!task) return fail(res, 404, "Task not found.");
-
-    if (task.platform !== "telegram" || !task.channel_username) {
-      return fail(res, 400, "এই টাস্কের নির্ভরযোগ্য যাচাই সেটআপ করা হয়নি।");
+    if(!data.tasks||!data.tasks.length){
+      container.textContent='এখন কোনো Social Task নেই।';
+      return;
     }
 
-    const already = await db(
-      "social_task_claims",
-      supabase
-        .from("social_task_claims")
-        .select("id")
-        .eq("task_id", taskId)
-        .eq("telegram_id", String(user.telegram_id))
-        .maybeSingle()
-    );
-
-    if (already) {
-      return fail(res, 400, "এই টাস্কের পুরস্কার আগেই নেওয়া হয়েছে।");
-    }
-
-    const url =
-      "https://api.telegram.org/bot" +
-      BOT_TOKEN +
-      "/getChatMember?chat_id=" +
-      encodeURIComponent(task.channel_username) +
-      "&user_id=" +
-      encodeURIComponent(String(user.telegram_id));
-
-    const check = await fetch(url);
-    const result = await check.json();
-
-    if (!result.ok) {
-      return fail(res, 400, "চ্যানেল সদস্যতা যাচাই করা যায়নি।");
-    }
-
-    const status = result.result?.status;
-    const member =
-      ["creator", "administrator", "member"].includes(status) ||
-      (status === "restricted" && result.result?.is_member === true);
-
-    if (!member) {
-      return fail(res, 400, "পুরস্কারের আগে Telegram চ্যানেলে যোগ দিন।");
-    }
-
-    const reward = Number(task.reward || 0);
-
-    if (!Number.isInteger(reward) || reward < 1) {
-      return fail(res, 400, "Invalid task reward.");
-    }
-
-    const activity = await getOrCreateActivity(user.telegram_id);
-
-    if (Number(activity.total_earned || 0) + reward > DAILY_MAX) {
-      return fail(res, 400, "আজকের দৈনিক সীমা পূর্ণ হয়েছে।");
-    }
-
-    await db(
-      "social_task_claims",
-      supabase.from("social_task_claims").insert({
-        task_id: taskId,
-        telegram_id: String(user.telegram_id),
-        claimed_at: new Date().toISOString()
-      })
-    );
-
-    const resultPoints = await addPoints(
-      user.telegram_id,
-      reward,
-      "social_task",
-      "Social task: " + String(task.title || taskId)
-    );
-
-    res.json({
-      success: true,
-      awarded: resultPoints.awarded,
-      balance: resultPoints.balance
-    });
-  } catch (e) {
-    console.error("[SOCIAL TASK CLAIM ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-/* BADGE SHOP */
-
-app.post("/api/shop/request", telegramAuth, async (req, res) => {
-  try {
-    const user = await ensureUser(req.telegramUser);
-    const badgeKey = String(req.body?.badge || "");
-    const badge = BADGES[badgeKey];
-
-    if (!badge) return fail(res, 400, "Unknown badge.");
-
-    const existing = await db(
-      "shop_requests",
-      supabase
-        .from("shop_requests")
-        .select("id")
-        .eq("telegram_id", String(user.telegram_id))
-        .eq("badge_key", badgeKey)
-        .eq("status", "pending")
-        .maybeSingle()
-    );
-
-    if (existing) {
-      return fail(res, 400, "এই ব্যাজের অনুরোধ ইতিমধ্যে অপেক্ষমাণ।");
-    }
-
-    if (Number(user.balance || 0) < badge.price) {
-      return fail(res, 400, "পর্যাপ্ত FP Points নেই।");
-    }
-
-    const request = await db(
-      "shop_requests",
-      supabase
-        .from("shop_requests")
-        .insert({
-          telegram_id: String(user.telegram_id),
-          badge_key: badgeKey,
-          price: badge.price,
-          status: "pending",
-          created_at: new Date().toISOString()
-        })
-        .select("*")
-        .single()
-    );
-
-    res.json({ success: true, request });
-  } catch (e) {
-    console.error("[SHOP REQUEST ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-/* REFERRALS */
-
-app.get("/api/referral", telegramAuth, async (req, res) => {
-  try {
-    const user = await ensureUser(req.telegramUser);
-
-    const botInfoResponse = await fetch(
-      "https://api.telegram.org/bot" + BOT_TOKEN + "/getMe"
-    );
-
-    const botInfo = await botInfoResponse.json();
-
-    if (!botInfo.ok) {
-      return fail(res, 503, "Bot information unavailable.");
-    }
-
-    const rows = await db(
-      "referrals",
-      supabase
-        .from("referrals")
-        .select("id")
-        .eq("referrer_telegram_id", String(user.telegram_id))
-        .eq("status", "confirmed")
-    );
-
-    res.json({
-      link: `https://t.me/${botInfo.result.username}?start=${user.telegram_id}`,
-      successfulReferrals: (rows || []).length
-    });
-  } catch (e) {
-    console.error("[REFERRAL ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-/* WITHDRAWALS */
-
-app.post("/api/withdrawals", telegramAuth, async (req, res) => {
-  try {
-    const user = await ensureUser(req.telegramUser);
-    const amount = Number(req.body?.amount);
-    const method = String(req.body?.method || "");
-    const account = String(req.body?.account || "").trim();
-
-    if (!Number.isInteger(amount) || amount < 20000) {
-      return fail(res, 400, "Minimum withdrawal is 20,000 FP.");
-    }
-
-    if (!["bKash", "Nagad", "Binance"].includes(method)) {
-      return fail(res, 400, "Unsupported withdrawal method.");
-    }
-
-    if (!account || account.length > 100) {
-      return fail(res, 400, "Invalid payout account.");
-    }
-
-    if (Number(user.balance || 0) < amount) {
-      return fail(res, 400, "পর্যাপ্ত ব্যালেন্স নেই।");
-    }
-
-    const updatedBalance = Number(user.balance) - amount;
-
-    await db(
-      "users",
-      supabase
-        .from("users")
-        .update({ balance: updatedBalance })
-        .eq("telegram_id", String(user.telegram_id))
-    );
-
-    const withdrawal = await db(
-      "withdrawals",
-      supabase
-        .from("withdrawals")
-        .insert({
-          telegram_id: String(user.telegram_id),
-          amount,
-          method,
-          account,
-          status: "pending",
-          created_at: new Date().toISOString()
-        })
-        .select("*")
-        .single()
-    );
-
-    await addTransaction(
-      user.telegram_id,
-      -amount,
-      "withdrawal_pending",
-      "Withdrawal request",
-      withdrawal.id
-    );
-
-    res.json({
-      success: true,
-      withdrawal,
-      balance: updatedBalance
-    });
-  } catch (e) {
-    console.error("[WITHDRAWAL CREATE ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-app.get("/api/withdrawals", telegramAuth, async (req, res) => {
-  try {
-    const rows = await db(
-      "withdrawals",
-      supabase
-        .from("withdrawals")
-        .select("id, amount, method, status, created_at")
-        .eq("telegram_id", String(req.telegramUser.id))
-        .order("created_at", { ascending: false })
-        .limit(30)
-    );
-
-    res.json({ withdrawals: rows || [] });
-  } catch (e) {
-    console.error("[WITHDRAWALS LIST ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-/* ADMIN: USERS */
-
-app.get("/api/admin/users", adminAuth, async (req, res) => {
-  try {
-    const users = await db(
-      "users",
-      supabase
-        .from("users")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500)
-    );
-
-    res.json({ users: users || [] });
-  } catch (e) {
-    console.error("[ADMIN USERS ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-app.patch("/api/admin/users/:id", adminAuth, async (req, res) => {
-  try {
-    const id = String(req.params.id);
-    const patch = {};
-
-    if (typeof req.body?.is_blocked === "boolean") {
-      patch.is_blocked = req.body.is_blocked;
-    }
-
-    if (typeof req.body?.display_name === "string") {
-      const name = req.body.display_name.trim();
-
-      if (!name || name.length > 40) {
-        return fail(res, 400, "Invalid display name.");
-      }
-
-      patch.display_name = name;
-    }
-
-    if (!Object.keys(patch).length) {
-      return fail(res, 400, "No valid changes.");
-    }
-
-    const user = await db(
-      "users",
-      supabase
-        .from("users")
-        .update(patch)
-        .eq("telegram_id", id)
-        .select("*")
-        .single()
-    );
-
-    res.json({ success: true, user });
-  } catch (e) {
-    console.error("[ADMIN USER UPDATE ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-app.post("/api/admin/users/:id/points", adminAuth, async (req, res) => {
-  try {
-    const id = String(req.params.id);
-    const amount = Number(req.body?.amount);
-    const reason = String(req.body?.reason || "").trim();
-
-    if (
-      !Number.isInteger(amount) ||
-      amount === 0 ||
-      Math.abs(amount) > 1000000
-    ) {
-      return fail(res, 400, "Invalid points amount.");
-    }
-
-    if (!reason || reason.length > 200) {
-      return fail(res, 400, "A reason is required.");
-    }
-
-    const user = await getUser(id);
-
-    if (!user) return fail(res, 404, "User not found.");
-
-    const balance = Number(user.balance || 0) + amount;
-
-    if (balance < 0) {
-      return fail(res, 400, "Balance cannot be negative.");
-    }
-
-    await db(
-      "users",
-      supabase.from("users").update({ balance }).eq("telegram_id", id)
-    );
-
-    await addTransaction(id, amount, "admin_adjustment", reason);
-
-    await db(
-      "admin_logs",
-      supabase.from("admin_logs").insert({
-        admin_telegram_id: ADMIN_TELEGRAM_ID,
-        target_telegram_id: id,
-        action: "points_adjustment",
-        details: { amount, reason },
-        created_at: new Date().toISOString()
-      })
-    );
-
-    res.json({ success: true, balance });
-  } catch (e) {
-    console.error("[ADMIN POINTS ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-/* ADMIN: WITHDRAWALS */
-
-app.get("/api/admin/withdrawals", adminAuth, async (req, res) => {
-  try {
-    const rows = await db(
-      "withdrawals",
-      supabase
-        .from("withdrawals")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500)
-    );
-
-    res.json({ withdrawals: rows || [] });
-  } catch (e) {
-    console.error("[ADMIN WITHDRAWALS ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-app.post(
-  "/api/admin/withdrawals/:id/review",
-  adminAuth,
-  async (req, res) => {
-    try {
-      const id = String(req.params.id);
-      const action = String(req.body?.action || "");
-
-      if (!["approve", "reject"].includes(action)) {
-        return fail(res, 400, "Action must be approve or reject.");
-      }
-
-      const withdrawal = await db(
-        "withdrawals",
-        supabase
-          .from("withdrawals")
-          .select("*")
-          .eq("id", id)
-          .maybeSingle()
-      );
-
-      if (!withdrawal) return fail(res, 404, "Withdrawal not found.");
-
-      if (withdrawal.status !== "pending") {
-        return fail(res, 400, "Already reviewed.");
-      }
-
-      if (action === "reject") {
-        const user = await getUser(withdrawal.telegram_id);
-
-        if (!user) return fail(res, 404, "User not found.");
-
-        await db(
-          "users",
-          supabase
-            .from("users")
-            .update({
-              balance:
-                Number(user.balance || 0) + Number(withdrawal.amount)
-            })
-            .eq("telegram_id", String(withdrawal.telegram_id))
-        );
-
-        await addTransaction(
-          withdrawal.telegram_id,
-          Number(withdrawal.amount),
-          "withdrawal_refund",
-          "Withdrawal rejected; points refunded",
-          id
-        );
-      }
-
-      await db(
-        "withdrawals",
-        supabase
-          .from("withdrawals")
-          .update({
-            status: action === "approve" ? "approved" : "rejected",
-            reviewed_at: new Date().toISOString(),
-            reviewed_by: ADMIN_TELEGRAM_ID
-          })
-          .eq("id", id)
-          .eq("status", "pending")
-      );
-
-      res.json({ success: true });
-    } catch (e) {
-      console.error("[ADMIN WITHDRAWAL REVIEW ERROR]", e);
-      fail(res, 400, e.message);
-    }
-  }
-);
-
-/* ADMIN: BADGE REQUESTS */
-
-app.get("/api/admin/shop-requests", adminAuth, async (req, res) => {
-  try {
-    const rows = await db(
-      "shop_requests",
-      supabase
-        .from("shop_requests")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500)
-    );
-
-    res.json({ requests: rows || [] });
-  } catch (e) {
-    console.error("[ADMIN SHOP REQUESTS ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-app.post(
-  "/api/admin/shop-requests/:id/review",
-  adminAuth,
-  async (req, res) => {
-    try {
-      const id = String(req.params.id);
-      const action = String(req.body?.action || "");
-
-      if (!["approve", "reject"].includes(action)) {
-        return fail(res, 400, "Action must be approve or reject.");
-      }
-
-      const request = await db(
-        "shop_requests",
-        supabase
-          .from("shop_requests")
-          .select("*")
-          .eq("id", id)
-          .maybeSingle()
-      );
-
-      if (!request) return fail(res, 404, "Request not found.");
-
-      if (request.status !== "pending") {
-        return fail(res, 400, "Request already reviewed.");
-      }
-
-      if (action === "approve") {
-        const user = await getUser(request.telegram_id);
-
-        if (!user || Number(user.balance || 0) < Number(request.price)) {
-          return fail(res, 400, "User balance is insufficient.");
+    data.tasks.forEach(task=>{
+      const row=document.createElement('div');
+      row.className='item';
+
+      const title=document.createElement('strong');
+      title.textContent=task.title||'Telegram task';
+
+      const desc=document.createElement('div');
+      desc.className='muted';
+      desc.textContent=(task.description||'Telegram channel membership verify করুন।')+
+        ' · '+Number(task.reward||0)+' FC';
+
+      const link=document.createElement('a');
+      link.href=task.url||'#';
+      link.target='_blank';
+      link.rel='noopener';
+      link.textContent='Open task';
+      link.style.color='#62e6b5';
+      link.style.display='inline-block';
+      link.style.marginTop='10px';
+
+      const button=document.createElement('button');
+      button.className='btn secondary full';
+      button.textContent='Verify & claim reward';
+
+      button.onclick=async()=>{
+        setBusy(button,true,'Verifying…');
+
+        try{
+          const result=await api('/api/social-tasks/claim',{
+            method:'POST',
+            body:{taskId:String(task.id)}
+          });
+
+          await refreshUser();
+          await loadTaskStatus();
+
+          toast('+'+Number(result.awarded||task.reward||0)+' FC Points');
+
+          button.textContent='Reward claimed';
+          button.disabled=true;
+        }catch(e){
+          toast(e.message);
+          setBusy(button,false);
         }
+      };
 
-        await db(
-          "users",
-          supabase
-            .from("users")
-            .update({
-              balance: Number(user.balance) - Number(request.price)
-            })
-            .eq("telegram_id", String(request.telegram_id))
-        );
-
-        await db(
-          "user_badges",
-          supabase
-            .from("user_badges")
-            .upsert(
-              {
-                telegram_id: String(request.telegram_id),
-                badge_key: request.badge_key,
-                created_at: new Date().toISOString()
-              },
-              { onConflict: "telegram_id,badge_key" }
-            )
-        );
-
-        await addTransaction(
-          request.telegram_id,
-          -Number(request.price),
-          "badge_purchase",
-          "Badge purchase: " + request.badge_key,
-          id
-        );
-      }
-
-      await db(
-        "shop_requests",
-        supabase
-          .from("shop_requests")
-          .update({
-            status: action === "approve" ? "approved" : "rejected",
-            reviewed_at: new Date().toISOString(),
-            reviewed_by: ADMIN_TELEGRAM_ID
-          })
-          .eq("id", id)
-          .eq("status", "pending")
-      );
-
-      res.json({ success: true });
-    } catch (e) {
-      console.error("[ADMIN SHOP REVIEW ERROR]", e);
-      fail(res, 400, e.message);
-    }
-  }
-);
-
-/* ADMIN: SOCIAL TASKS */
-
-app.get("/api/admin/social-tasks", adminAuth, async (req, res) => {
-  try {
-    const rows = await db(
-      "social_tasks",
-      supabase
-        .from("social_tasks")
-        .select("*")
-        .order("created_at", { ascending: false })
-    );
-
-    res.json({ tasks: rows || [] });
-  } catch (e) {
-    console.error("[ADMIN SOCIAL TASKS ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-app.post("/api/admin/social-tasks", adminAuth, async (req, res) => {
-  try {
-    const title = String(req.body?.title || "").trim();
-    const description = String(req.body?.description || "").trim();
-    const url = String(req.body?.url || "").trim();
-    const channelUsername = String(req.body?.channel_username || "").trim();
-    const reward = Number(req.body?.reward);
-
-    if (!title || title.length > 100) {
-      return fail(res, 400, "Invalid title.");
-    }
-
-    if (!Number.isInteger(reward) || reward < 1 || reward > DAILY_MAX) {
-      return fail(res, 400, "Invalid reward.");
-    }
-
-    const task = await db(
-      "social_tasks",
-      supabase
-        .from("social_tasks")
-        .insert({
-          title,
-          description,
-          url,
-          platform: "telegram",
-          channel_username: channelUsername,
-          reward,
-          enabled: true,
-          created_at: new Date().toISOString()
-        })
-        .select("*")
-        .single()
-    );
-
-    res.json({ success: true, task });
-  } catch (e) {
-    console.error("[ADMIN SOCIAL TASK CREATE ERROR]", e);
-    fail(res, 400, e.message);
-  }
-});
-
-app.patch(
-  "/api/admin/social-tasks/:id",
-  adminAuth,
-  async (req, res) => {
-    try {
-      const patch = {};
-
-      if (typeof req.body?.enabled === "boolean") {
-        patch.enabled = req.body.enabled;
-      }
-
-      if (typeof req.body?.title === "string") {
-        patch.title = req.body.title.trim();
-      }
-
-      if (typeof req.body?.description === "string") {
-        patch.description = req.body.description.trim();
-      }
-
-      if (!Object.keys(patch).length) {
-        return fail(res, 400, "No changes provided.");
-      }
-
-      const task = await db(
-        "social_tasks",
-        supabase
-          .from("social_tasks")
-          .update(patch)
-          .eq("id", String(req.params.id))
-          .select("*")
-          .single()
-      );
-
-      res.json({ success: true, task });
-    } catch (e) {
-      console.error("[ADMIN SOCIAL TASK UPDATE ERROR]", e);
-      fail(res, 400, e.message);
-    }
-  }
-);
-
-/* ADMIN: DASHBOARD STATS */
-
-app.get("/api/admin/stats", adminAuth, async (req, res) => {
-  try {
-    const users = await db(
-      "users",
-      supabase.from("users").select("telegram_id,is_blocked")
-    );
-
-    const withdrawals = await db(
-      "withdrawals",
-      supabase.from("withdrawals").select("id,status")
-    );
-
-    const shop = await db(
-      "shop_requests",
-      supabase.from("shop_requests").select("id,status")
-    );
-
-    res.json({
-      totalUsers: users.length,
-      activeUsers: users.filter((u) => !u.is_blocked).length,
-      blockedUsers: users.filter((u) => u.is_blocked).length,
-      pendingWithdrawals: withdrawals.filter((w) => w.status === "pending").length,
-      pendingBadgeRequests: shop.filter((s) => s.status === "pending").length
+      row.append(title,desc,link,button);
+      container.appendChild(row);
     });
-  } catch (e) {
-    console.error("[ADMIN STATS ERROR]", e);
-    fail(res, 400, e.message);
+  }catch(e){
+    container.textContent=e.message;
+  }
+}
+
+const badges=[
+  {key:'blueberry',name:'Blueberry',price:5000,description:'Blueberry VIP badge'},
+  {key:'green_berry',name:'Green Berry',price:10000,description:'Green Berry VIP badge'},
+  {key:'blue_tick',name:'Verified Blue Tick',price:15000,description:'Verified profile badge'},
+  {key:'black_vip',name:'Black VIP',price:25000,description:'Highest VIP badge'}
+];
+
+async function loadShop(){
+  const container=$('shopItems');
+  container.innerHTML='';
+
+  badges.forEach(item=>{
+    const row=document.createElement('div');
+    row.className='item';
+
+    const title=document.createElement('strong');
+    title.textContent=item.name;
+
+    const detail=document.createElement('div');
+    detail.className='muted';
+    detail.textContent=item.description+' · '+item.price.toLocaleString()+' FC';
+
+    const button=document.createElement('button');
+    button.className='btn secondary full';
+    button.textContent='Request purchase';
+
+    button.onclick=async()=>{
+      setBusy(button,true,'Submitting…');
+
+      try{
+        await api('/api/shop/request',{
+          method:'POST',
+          body:{badge:item.key}
+        });
+
+        toast('Purchase request submitted for admin approval.');
+        button.textContent='Request submitted';
+        button.disabled=true;
+      }catch(e){
+        toast(e.message);
+        setBusy(button,false);
+      }
+    };
+
+    row.append(title,detail,button);
+    container.appendChild(row);
+  });
+}
+
+window.loadShop=loadShop;
+
+async function saveProfile(button){
+  const displayName=$('customName').value.trim();
+
+  if(!displayName){
+    toast('একটি নাম লিখুন।');
+    return;
+  }
+
+  setBusy(button,true,'Saving…');
+
+  try{
+    const data=await api('/api/profile/display-name',{
+      method:'PATCH',
+      body:{displayName}
+    });
+
+    renderUser(data.user);
+    toast('Profile updated.');
+  }catch(e){
+    toast(e.message);
+  }finally{
+    setBusy(button,false);
+  }
+}
+
+window.saveProfile=saveProfile;
+
+$('withdrawForm').addEventListener('submit',async function(e){
+  e.preventDefault();
+
+  const button=$('withdrawButton');
+  const amount=Number($('withdrawAmount').value);
+  const method=$('paymentMethod').value;
+  const account=$('paymentIdentifier').value.trim();
+  const message=$('withdrawMessage');
+
+  message.hidden=true;
+
+  if(!Number.isInteger(amount)||amount<20000){
+    toast('Minimum withdrawal is 20,000 FC Points.');
+    return;
+  }
+
+  if(!method||!account){
+    toast('Payment method ও account details দিন।');
+    return;
+  }
+
+  setBusy(button,true,'Submitting…');
+
+  try{
+    const data=await api('/api/withdrawals',{
+      method:'POST',
+      body:{amount,method,account}
+    });
+
+    if(state.user&&data.balance!=null){
+      state.user.balance=Number(data.balance);
+    }
+
+    renderUser(state.user);
+
+    message.textContent='Withdrawal request submitted. Status: pending.';
+    message.hidden=false;
+
+    $('withdrawAmount').value='';
+    $('paymentIdentifier').value='';
+
+    toast('Withdrawal request submitted.');
+    await loadWithdrawals();
+  }catch(err){
+    message.textContent=err.message;
+    message.hidden=false;
+    toast(err.message);
+  }finally{
+    setBusy(button,false);
   }
 });
 
-/* GLOBAL ERROR HANDLER */
+async function loadWithdrawals(){
+  if(!state.initData)return;
 
-app.use((err, req, res, next) => {
-  console.error("[UNHANDLED ERROR]", err);
+  const el=$('withdrawalHistory');
+  el.textContent='Loading…';
 
-  if (res.headersSent) return next(err);
+  try{
+    const data=await api('/api/withdrawals');
+    el.innerHTML='';
 
-  res.status(500).json({
-    error: "Internal server error."
-  });
+    if(!data.withdrawals||!data.withdrawals.length){
+      el.textContent='কোনো withdrawal request নেই।';
+      return;
+    }
+
+    data.withdrawals.forEach(w=>{
+      const row=document.createElement('div');
+      row.className='item';
+      row.textContent=
+        Number(w.amount||0).toLocaleString()+' FC · '+
+        String(w.method||'')+' · '+
+        String(w.status||'pending');
+
+      el.appendChild(row);
+    });
+  }catch(e){
+    el.textContent=e.message;
+  }
+}
+
+window.addEventListener('beforeunload',()=>{
+  if(state.earningTimer)clearInterval(state.earningTimer);
 });
 
-/* START SERVER */
-
-app.listen(PORT, () => {
-  console.log(`FP Points backend listening on port ${PORT}`);
-});
+loadApp();
+})();
+</script>
+</body>
+</html>
