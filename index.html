@@ -48,6 +48,13 @@ label{display:block;margin-top:14px;font-size:13px;color:var(--muted)}
 .item:last-child{border-bottom:0}
 .small{font-size:12px}
 .profile-avatar{width:54px;height:54px;border-radius:50%;background:#263b50;display:grid;place-items:center;font-size:24px;overflow:hidden}
+#profileName{overflow-wrap:anywhere}
+.profile-badges{display:inline-flex;align-items:center;gap:5px;margin-left:5px;vertical-align:middle}
+.profile-badge{display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;line-height:1;flex-shrink:0}
+.profile-badge.blue_tick{width:17px;height:17px;border-radius:50%;background:#2589ff;color:#fff}
+.profile-badge.blueberry{color:#a78bfa;font-size:17px}
+.profile-badge.green_berry{color:#35d399;font-size:17px}
+.profile-badge.black_vip{color:#f5f7fb;font-size:16px;text-shadow:0 0 5px #000}
 #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#e7fff5;color:#13271f;padding:12px 16px;border-radius:12px;z-index:10;display:none;max-width:90%;font-size:13px}
 </style>
 </head>
@@ -179,7 +186,7 @@ label{display:block;margin-top:14px;font-size:13px;color:var(--muted)}
   <div class="card">
     <div class="row">
       <div class="profile-avatar" id="avatar">👤</div>
-      <div style="flex:1">
+      <div style="flex:1;min-width:0">
         <strong id="profileName">Telegram User</strong>
         <div class="muted" id="profileUsername">Telegram user</div>
         <div class="small muted" id="profileId"></div>
@@ -188,7 +195,7 @@ label{display:block;margin-top:14px;font-size:13px;color:var(--muted)}
     <label for="customName">Display name</label>
     <input class="field" id="customName" maxlength="40" placeholder="Your display name">
     <button class="btn primary full" onclick="saveProfile(this)">Save profile</button>
-    <div class="notice">Your Telegram identity is verified by the backend. Approved badges appear on your profile.</div>
+    <div class="notice">Your Telegram identity is verified by the backend. Approved badges appear beside your profile name.</div>
     <div id="badgeList" class="notice">Loading badges…</div>
   </div>
   <div class="card">
@@ -238,7 +245,8 @@ const state={
   earningIntent:false,
   dailyLimitReached:false,
   bdDay:'',
-  normalMax:200
+  normalMax:200,
+  profileRefreshBusy:false
 };
 
 const $=id=>document.getElementById(id);
@@ -373,6 +381,45 @@ function points(user){
   return Number(user&&user.balance!=null?user.balance:0);
 }
 
+const BADGE_STYLES={
+  blue_tick:{symbol:'✓',className:'blue_tick',title:'Verified Blue Tick'},
+  blueberry:{symbol:'●',className:'blueberry',title:'Blueberry'},
+  green_berry:{symbol:'●',className:'green_berry',title:'Green Berry'},
+  black_vip:{symbol:'◆',className:'black_vip',title:'Black VIP'}
+};
+
+function renderProfileBadges(name,badges){
+  const profileName=$('profileName');
+  profileName.replaceChildren(document.createTextNode(name));
+
+  const validBadges=Array.isArray(badges)?badges:[];
+
+  if(!validBadges.length)return;
+
+  const badgeGroup=document.createElement('span');
+  badgeGroup.className='profile-badges';
+
+  validBadges.forEach(function(item){
+    const key=String(item.key||item.badge_key||'');
+    const style=BADGE_STYLES[key]||{
+      symbol:'✓',
+      className:'blue_tick',
+      title:item.name||key
+    };
+
+    const badge=document.createElement('span');
+    badge.className='profile-badge '+style.className;
+    badge.textContent=style.symbol;
+    badge.title=item.name||style.title;
+    badge.setAttribute('aria-label',item.name||style.title);
+    badge.setAttribute('role','img');
+
+    badgeGroup.appendChild(badge);
+  });
+
+  profileName.appendChild(badgeGroup);
+}
+
 function renderUser(user){
   if(!user)return;
 
@@ -392,7 +439,10 @@ function renderUser(user){
     'FC Points User';
 
   $('userGreeting').textContent='Welcome, '+name;
-  $('profileName').textContent=name;
+
+  const userBadges=Array.isArray(u.badges)?u.badges:[];
+  renderProfileBadges(name,userBadges);
+
   $('profileUsername').textContent=u.username?'@'+u.username:
     (tgUser&&tgUser.username?'@'+tgUser.username:'Telegram user');
 
@@ -413,10 +463,8 @@ function renderUser(user){
   $('normalEarned').textContent=earned+' / '+state.normalMax+' FC';
   $('normalProgress').style.width=Math.min(100,earned/state.normalMax*100)+'%';
 
-  const badges=Array.isArray(u.badges)?u.badges:[];
-
-  $('badgeList').textContent=badges.length
-    ?'Your badges: '+badges.map(b=>b.name||b.key).join(', ')
+  $('badgeList').textContent=userBadges.length
+    ?'Your badges: '+userBadges.map(b=>b.name||b.key||b.badge_key).join(', ')
     :'No approved VIP badges yet.';
 
   updateEarningUI();
@@ -642,6 +690,31 @@ function checkBangladeshMidnight(){
 }
 
 setInterval(checkBangladeshMidnight,15000);
+
+/* APPROVED BADGE PROFILE REFRESH */
+async function refreshProfileBadges(){
+  if(!state.initData||state.profileRefreshBusy)return;
+
+  if(document.visibilityState==='hidden')return;
+
+  state.profileRefreshBusy=true;
+
+  try{
+    await refreshUser();
+  }catch(e){
+    // Keep the existing profile visible if the network is temporarily unavailable.
+  }finally{
+    state.profileRefreshBusy=false;
+  }
+}
+
+setInterval(refreshProfileBadges,20000);
+
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'){
+    refreshProfileBadges();
+  }
+});
 
 async function claimReward(type,button){
   if(type==='checkin'){
