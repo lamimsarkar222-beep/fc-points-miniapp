@@ -1,4 +1,3 @@
-
 const express = require("express");
 const crypto = require("crypto");
 const path = require("path");
@@ -13,20 +12,15 @@ app.get("/admin.html", (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
 const FRONTEND_URL = (
   process.env.FRONTEND_URL ||
-  "https://found-points-app.onrender.com"
-)
-  .trim()
-  .replace(/\/+$/, "");
+  "https://fc-points-miniapp.onrender.com"
+).trim().replace(/\/+$/, "");
 
-const ADMIN_TELEGRAM_ID = String(
-  process.env.ADMIN_TELEGRAM_ID || ""
-);
+const ADMIN_TELEGRAM_ID = String(process.env.ADMIN_TELEGRAM_ID || "");
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !BOT_TOKEN) {
@@ -57,7 +51,8 @@ const BADGES = {
   black_vip: { name: "Black VIP", price: 25000 }
 };
 
-/* CORS CONFIGURATION */
+/* CORS */
+
 app.use((req, res, next) => {
   const origin = String(req.headers.origin || "")
     .trim()
@@ -65,8 +60,10 @@ app.use((req, res, next) => {
 
   const allowedOrigins = [
     FRONTEND_URL,
+    "https://fc-points-miniapp.onrender.com",
     "https://found-points-app.onrender.com"
   ];
+
   const originAllowed = allowedOrigins.includes(origin);
 
   console.log(
@@ -113,8 +110,10 @@ async function db(table, query) {
   const result = await query;
 
   if (result.error) {
-    console.error(table, result.error.message);
-    throw new Error("Database operation failed: " + table);
+    console.error(`[DATABASE ERROR: ${table}]`, result.error);
+    throw new Error(
+      `Database operation failed: ${table} — ${result.error.message}`
+    );
   }
 
   return result.data;
@@ -166,9 +165,7 @@ function verifyTelegramInitData(initData) {
 
   try {
     const user = JSON.parse(params.get("user") || "{}");
-
     if (!user.id) return null;
-
     return user;
   } catch {
     return null;
@@ -231,7 +228,7 @@ async function ensureUser(tg) {
     return user;
   }
 
-  const inserted = await db(
+  return db(
     "users",
     supabase
       .from("users")
@@ -247,8 +244,6 @@ async function ensureUser(tg) {
       .select("*")
       .single()
   );
-
-  return inserted;
 }
 
 async function getOrCreateActivity(telegramId) {
@@ -346,10 +341,7 @@ async function addPoints(telegramId, amount, type, description) {
 
   await addTransaction(telegramId, amount, type, description);
 
-  return {
-    balance: newBalance,
-    awarded: amount
-  };
+  return { balance: newBalance, awarded: amount };
 }
 
 /* HEALTH CHECK */
@@ -357,8 +349,8 @@ async function addPoints(telegramId, amount, type, description) {
 app.get("/", (req, res) => {
   res.json({
     status: "ok",
-    service: "Found Points Backend",
-    version: "fp-2.0"
+    service: "FP Points Backend",
+    version: "fp-2.1"
   });
 });
 
@@ -369,11 +361,9 @@ app.get("/health/db", async (req, res) => {
       supabase.from("users").select("id").limit(1)
     );
 
-    res.json({
-      status: "ok",
-      database: "connected"
-    });
-  } catch {
+    res.json({ status: "ok", database: "connected" });
+  } catch (e) {
+    console.error("[HEALTH DB]", e);
     res.status(503).json({
       status: "error",
       database: "unavailable"
@@ -381,15 +371,13 @@ app.get("/health/db", async (req, res) => {
   }
 });
 
-/* USER REGISTRATION */
+/* REGISTRATION */
 
 app.post("/api/register", async (req, res) => {
   try {
     const tg = verifyTelegramInitData(req.body?.initData);
 
-    if (!tg) {
-      return fail(res, 401, "Invalid Telegram initData.");
-    }
+    if (!tg) return fail(res, 401, "Invalid Telegram initData.");
 
     const user = await ensureUser(tg);
 
@@ -402,6 +390,7 @@ app.post("/api/register", async (req, res) => {
       }
     });
   } catch (e) {
+    console.error("[REGISTER ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -413,11 +402,12 @@ app.get("/api/user", telegramAuth, async (req, res) => {
     const user = await ensureUser(req.telegramUser);
     const activity = await getOrCreateActivity(user.telegram_id);
 
+    // Avoid requiring a Supabase relationship between user_badges and badges.
     const badges = await db(
       "user_badges",
       supabase
         .from("user_badges")
-        .select("badge_key, badges(name)")
+        .select("badge_key")
         .eq("telegram_id", String(user.telegram_id))
     );
 
@@ -428,14 +418,12 @@ app.get("/api/user", telegramAuth, async (req, res) => {
         normal_earned_today: Number(activity.normal_earned || 0),
         badges: (badges || []).map((b) => ({
           key: b.badge_key,
-          name:
-            b.badges?.name ||
-            BADGES[b.badge_key]?.name ||
-            b.badge_key
+          name: BADGES[b.badge_key]?.name || b.badge_key
         }))
       }
     });
   } catch (e) {
+    console.error("[USER PROFILE ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -445,16 +433,10 @@ app.patch(
   telegramAuth,
   async (req, res) => {
     try {
-      const displayName = String(
-        req.body?.displayName || ""
-      ).trim();
+      const displayName = String(req.body?.displayName || "").trim();
 
       if (!displayName || displayName.length > 40) {
-        return fail(
-          res,
-          400,
-          "নাম ১ থেকে ৪০ অক্ষরের মধ্যে হতে হবে।"
-        );
+        return fail(res, 400, "নাম ১ থেকে ৪০ অক্ষরের মধ্যে হতে হবে।");
       }
 
       await ensureUser(req.telegramUser);
@@ -472,11 +454,9 @@ app.patch(
           .single()
       );
 
-      res.json({
-        success: true,
-        user
-      });
+      res.json({ success: true, user });
     } catch (e) {
+      console.error("[PROFILE NAME ERROR]", e);
       fail(res, 400, e.message);
     }
   }
@@ -498,6 +478,7 @@ app.post("/api/earning/start", telegramAuth, async (req, res) => {
       )
     });
   } catch (e) {
+    console.error("[EARNING START ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -515,10 +496,7 @@ app.post("/api/earning/claim", telegramAuth, async (req, res) => {
       return fail(res, 400, "Daily earning limit reached.");
     }
 
-    const reward = Math.min(
-      1,
-      NORMAL_MAX - Number(activity.normal_earned || 0)
-    );
+    const reward = 1;
 
     const result = await addPoints(
       user.telegram_id,
@@ -538,19 +516,25 @@ app.post("/api/earning/claim", telegramAuth, async (req, res) => {
         .eq("activity_date", today())
     );
 
+    console.log("[EARNING CLAIM SUCCESS]", {
+      telegramId: String(user.telegram_id),
+      awarded: result.awarded,
+      balance: result.balance
+    });
+
     res.json({
       success: true,
       awarded: result.awarded,
       balance: result.balance,
-      normalEarnedToday:
-        Number(activity.normal_earned || 0) + reward
+      normalEarnedToday: Number(activity.normal_earned || 0) + reward
     });
   } catch (e) {
+    console.error("[EARNING CLAIM ERROR]", e);
     fail(res, 400, e.message);
   }
 });
 
-/* DAILY CHECK-IN AND TASK STATUS */
+/* CHECK-IN */
 
 app.post("/api/checkin", telegramAuth, async (req, res) => {
   try {
@@ -558,19 +542,19 @@ app.post("/api/checkin", telegramAuth, async (req, res) => {
     const activity = await getOrCreateActivity(user.telegram_id);
 
     if (activity.checkin_claimed) {
-      return fail(
-        res,
-        400,
-        "আজকের চেক-ইন ইতিমধ্যে নেওয়া হয়েছে।"
-      );
+      return fail(res, 400, "আজকের চেক-ইন ইতিমধ্যে নেওয়া হয়েছে।");
     }
 
-    if (
-      Number(activity.total_earned || 0) + CHECKIN_REWARD >
-      DAILY_MAX
-    ) {
+    if (Number(activity.total_earned || 0) + CHECKIN_REWARD > DAILY_MAX) {
       return fail(res, 400, "আজকের দৈনিক সীমা পূর্ণ হয়েছে।");
     }
+
+    const result = await addPoints(
+      user.telegram_id,
+      CHECKIN_REWARD,
+      "daily_checkin",
+      "Daily check-in"
+    );
 
     await db(
       "daily_activity",
@@ -581,19 +565,13 @@ app.post("/api/checkin", telegramAuth, async (req, res) => {
         .eq("activity_date", today())
     );
 
-    const result = await addPoints(
-      user.telegram_id,
-      CHECKIN_REWARD,
-      "daily_checkin",
-      "Daily check-in"
-    );
-
     res.json({
       success: true,
       awarded: result.awarded,
       balance: result.balance
     });
   } catch (e) {
+    console.error("[CHECKIN ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -611,6 +589,7 @@ app.get("/api/tasks/status", telegramAuth, async (req, res) => {
       dailyMaximum: DAILY_MAX
     });
   } catch (e) {
+    console.error("[TASK STATUS ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -629,10 +608,9 @@ app.get("/api/transactions", telegramAuth, async (req, res) => {
         .limit(50)
     );
 
-    res.json({
-      transactions: rows || []
-    });
+    res.json({ transactions: rows || [] });
   } catch (e) {
+    console.error("[TRANSACTIONS ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -650,10 +628,9 @@ app.get("/api/social-tasks", telegramAuth, async (req, res) => {
         .order("created_at", { ascending: false })
     );
 
-    res.json({
-      tasks: tasks || []
-    });
+    res.json({ tasks: tasks || [] });
   } catch (e) {
+    console.error("[SOCIAL TASKS ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -673,16 +650,10 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
         .maybeSingle()
     );
 
-    if (!task) {
-      return fail(res, 404, "Task not found.");
-    }
+    if (!task) return fail(res, 404, "Task not found.");
 
     if (task.platform !== "telegram" || !task.channel_username) {
-      return fail(
-        res,
-        400,
-        "এই টাস্কের নির্ভরযোগ্য যাচাই সেটআপ করা হয়নি।"
-      );
+      return fail(res, 400, "এই টাস্কের নির্ভরযোগ্য যাচাই সেটআপ করা হয়নি।");
     }
 
     const already = await db(
@@ -696,11 +667,7 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
     );
 
     if (already) {
-      return fail(
-        res,
-        400,
-        "এই টাস্কের পুরস্কার আগেই নেওয়া হয়েছে।"
-      );
+      return fail(res, 400, "এই টাস্কের পুরস্কার আগেই নেওয়া হয়েছে।");
     }
 
     const url =
@@ -715,25 +682,16 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
     const result = await check.json();
 
     if (!result.ok) {
-      return fail(
-        res,
-        400,
-        "চ্যানেল সদস্যতা যাচাই করা যায়নি।"
-      );
+      return fail(res, 400, "চ্যানেল সদস্যতা যাচাই করা যায়নি।");
     }
 
     const status = result.result?.status;
-
     const member =
       ["creator", "administrator", "member"].includes(status) ||
       (status === "restricted" && result.result?.is_member === true);
 
     if (!member) {
-      return fail(
-        res,
-        400,
-        "পুরস্কারের আগে Telegram চ্যানেলে যোগ দিন।"
-      );
+      return fail(res, 400, "পুরস্কারের আগে Telegram চ্যানেলে যোগ দিন।");
     }
 
     const reward = Number(task.reward || 0);
@@ -742,11 +700,9 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
       return fail(res, 400, "Invalid task reward.");
     }
 
-    if (
-      Number((await getOrCreateActivity(user.telegram_id)).total_earned || 0) +
-      reward >
-      DAILY_MAX
-    ) {
+    const activity = await getOrCreateActivity(user.telegram_id);
+
+    if (Number(activity.total_earned || 0) + reward > DAILY_MAX) {
       return fail(res, 400, "আজকের দৈনিক সীমা পূর্ণ হয়েছে।");
     }
 
@@ -772,6 +728,7 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
       balance: resultPoints.balance
     });
   } catch (e) {
+    console.error("[SOCIAL TASK CLAIM ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -784,9 +741,7 @@ app.post("/api/shop/request", telegramAuth, async (req, res) => {
     const badgeKey = String(req.body?.badge || "");
     const badge = BADGES[badgeKey];
 
-    if (!badge) {
-      return fail(res, 400, "Unknown badge.");
-    }
+    if (!badge) return fail(res, 400, "Unknown badge.");
 
     const existing = await db(
       "shop_requests",
@@ -800,11 +755,7 @@ app.post("/api/shop/request", telegramAuth, async (req, res) => {
     );
 
     if (existing) {
-      return fail(
-        res,
-        400,
-        "এই ব্যাজের অনুরোধ ইতিমধ্যে অপেক্ষমাণ।"
-      );
+      return fail(res, 400, "এই ব্যাজের অনুরোধ ইতিমধ্যে অপেক্ষমাণ।");
     }
 
     if (Number(user.balance || 0) < badge.price) {
@@ -826,11 +777,9 @@ app.post("/api/shop/request", telegramAuth, async (req, res) => {
         .single()
     );
 
-    res.json({
-      success: true,
-      request
-    });
+    res.json({ success: true, request });
   } catch (e) {
+    console.error("[SHOP REQUEST ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -865,6 +814,7 @@ app.get("/api/referral", telegramAuth, async (req, res) => {
       successfulReferrals: (rows || []).length
     });
   } catch (e) {
+    console.error("[REFERRAL ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -879,19 +829,11 @@ app.post("/api/withdrawals", telegramAuth, async (req, res) => {
     const account = String(req.body?.account || "").trim();
 
     if (!Number.isInteger(amount) || amount < 20000) {
-      return fail(
-        res,
-        400,
-        "Minimum withdrawal is 20,000 FP."
-      );
+      return fail(res, 400, "Minimum withdrawal is 20,000 FP.");
     }
 
     if (!["bKash", "Nagad", "Binance"].includes(method)) {
-      return fail(
-        res,
-        400,
-        "Unsupported withdrawal method."
-      );
+      return fail(res, 400, "Unsupported withdrawal method.");
     }
 
     if (!account || account.length > 100) {
@@ -942,6 +884,7 @@ app.post("/api/withdrawals", telegramAuth, async (req, res) => {
       balance: updatedBalance
     });
   } catch (e) {
+    console.error("[WITHDRAWAL CREATE ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -958,10 +901,9 @@ app.get("/api/withdrawals", telegramAuth, async (req, res) => {
         .limit(30)
     );
 
-    res.json({
-      withdrawals: rows || []
-    });
+    res.json({ withdrawals: rows || [] });
   } catch (e) {
+    console.error("[WITHDRAWALS LIST ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -979,10 +921,9 @@ app.get("/api/admin/users", adminAuth, async (req, res) => {
         .limit(500)
     );
 
-    res.json({
-      users: users || []
-    });
+    res.json({ users: users || [] });
   } catch (e) {
+    console.error("[ADMIN USERS ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -1020,11 +961,9 @@ app.patch("/api/admin/users/:id", adminAuth, async (req, res) => {
         .single()
     );
 
-    res.json({
-      success: true,
-      user
-    });
+    res.json({ success: true, user });
   } catch (e) {
+    console.error("[ADMIN USER UPDATE ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -1049,9 +988,7 @@ app.post("/api/admin/users/:id/points", adminAuth, async (req, res) => {
 
     const user = await getUser(id);
 
-    if (!user) {
-      return fail(res, 404, "User not found.");
-    }
+    if (!user) return fail(res, 404, "User not found.");
 
     const balance = Number(user.balance || 0) + amount;
 
@@ -1061,18 +998,10 @@ app.post("/api/admin/users/:id/points", adminAuth, async (req, res) => {
 
     await db(
       "users",
-      supabase
-        .from("users")
-        .update({ balance })
-        .eq("telegram_id", id)
+      supabase.from("users").update({ balance }).eq("telegram_id", id)
     );
 
-    await addTransaction(
-      id,
-      amount,
-      "admin_adjustment",
-      reason
-    );
+    await addTransaction(id, amount, "admin_adjustment", reason);
 
     await db(
       "admin_logs",
@@ -1085,11 +1014,9 @@ app.post("/api/admin/users/:id/points", adminAuth, async (req, res) => {
       })
     );
 
-    res.json({
-      success: true,
-      balance
-    });
+    res.json({ success: true, balance });
   } catch (e) {
+    console.error("[ADMIN POINTS ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -1107,10 +1034,9 @@ app.get("/api/admin/withdrawals", adminAuth, async (req, res) => {
         .limit(500)
     );
 
-    res.json({
-      withdrawals: rows || []
-    });
+    res.json({ withdrawals: rows || [] });
   } catch (e) {
+    console.error("[ADMIN WITHDRAWALS ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -1124,11 +1050,7 @@ app.post(
       const action = String(req.body?.action || "");
 
       if (!["approve", "reject"].includes(action)) {
-        return fail(
-          res,
-          400,
-          "Action must be approve or reject."
-        );
+        return fail(res, 400, "Action must be approve or reject.");
       }
 
       const withdrawal = await db(
@@ -1140,9 +1062,7 @@ app.post(
           .maybeSingle()
       );
 
-      if (!withdrawal) {
-        return fail(res, 404, "Withdrawal not found.");
-      }
+      if (!withdrawal) return fail(res, 404, "Withdrawal not found.");
 
       if (withdrawal.status !== "pending") {
         return fail(res, 400, "Already reviewed.");
@@ -1151,9 +1071,7 @@ app.post(
       if (action === "reject") {
         const user = await getUser(withdrawal.telegram_id);
 
-        if (!user) {
-          return fail(res, 404, "User not found.");
-        }
+        if (!user) return fail(res, 404, "User not found.");
 
         await db(
           "users",
@@ -1161,8 +1079,7 @@ app.post(
             .from("users")
             .update({
               balance:
-                Number(user.balance || 0) +
-                Number(withdrawal.amount)
+                Number(user.balance || 0) + Number(withdrawal.amount)
             })
             .eq("telegram_id", String(withdrawal.telegram_id))
         );
@@ -1189,10 +1106,9 @@ app.post(
           .eq("status", "pending")
       );
 
-      res.json({
-        success: true
-      });
+      res.json({ success: true });
     } catch (e) {
+      console.error("[ADMIN WITHDRAWAL REVIEW ERROR]", e);
       fail(res, 400, e.message);
     }
   }
@@ -1211,10 +1127,9 @@ app.get("/api/admin/shop-requests", adminAuth, async (req, res) => {
         .limit(500)
     );
 
-    res.json({
-      requests: rows || []
-    });
+    res.json({ requests: rows || [] });
   } catch (e) {
+    console.error("[ADMIN SHOP REQUESTS ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -1228,11 +1143,7 @@ app.post(
       const action = String(req.body?.action || "");
 
       if (!["approve", "reject"].includes(action)) {
-        return fail(
-          res,
-          400,
-          "Action must be approve or reject."
-        );
+        return fail(res, 400, "Action must be approve or reject.");
       }
 
       const request = await db(
@@ -1244,9 +1155,7 @@ app.post(
           .maybeSingle()
       );
 
-      if (!request) {
-        return fail(res, 404, "Request not found.");
-      }
+      if (!request) return fail(res, 404, "Request not found.");
 
       if (request.status !== "pending") {
         return fail(res, 400, "Request already reviewed.");
@@ -1255,15 +1164,8 @@ app.post(
       if (action === "approve") {
         const user = await getUser(request.telegram_id);
 
-        if (
-          !user ||
-          Number(user.balance || 0) < Number(request.price)
-        ) {
-          return fail(
-            res,
-            400,
-            "User balance is insufficient."
-          );
+        if (!user || Number(user.balance || 0) < Number(request.price)) {
+          return fail(res, 400, "User balance is insufficient.");
         }
 
         await db(
@@ -1271,8 +1173,7 @@ app.post(
           supabase
             .from("users")
             .update({
-              balance:
-                Number(user.balance) - Number(request.price)
+              balance: Number(user.balance) - Number(request.price)
             })
             .eq("telegram_id", String(request.telegram_id))
         );
@@ -1287,9 +1188,7 @@ app.post(
                 badge_key: request.badge_key,
                 created_at: new Date().toISOString()
               },
-              {
-                onConflict: "telegram_id,badge_key"
-              }
+              { onConflict: "telegram_id,badge_key" }
             )
         );
 
@@ -1315,10 +1214,9 @@ app.post(
           .eq("status", "pending")
       );
 
-      res.json({
-        success: true
-      });
+      res.json({ success: true });
     } catch (e) {
+      console.error("[ADMIN SHOP REVIEW ERROR]", e);
       fail(res, 400, e.message);
     }
   }
@@ -1336,10 +1234,9 @@ app.get("/api/admin/social-tasks", adminAuth, async (req, res) => {
         .order("created_at", { ascending: false })
     );
 
-    res.json({
-      tasks: rows || []
-    });
+    res.json({ tasks: rows || [] });
   } catch (e) {
+    console.error("[ADMIN SOCIAL TASKS ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -1349,20 +1246,14 @@ app.post("/api/admin/social-tasks", adminAuth, async (req, res) => {
     const title = String(req.body?.title || "").trim();
     const description = String(req.body?.description || "").trim();
     const url = String(req.body?.url || "").trim();
-    const channelUsername = String(
-      req.body?.channel_username || ""
-    ).trim();
+    const channelUsername = String(req.body?.channel_username || "").trim();
     const reward = Number(req.body?.reward);
 
     if (!title || title.length > 100) {
       return fail(res, 400, "Invalid title.");
     }
 
-    if (
-      !Number.isInteger(reward) ||
-      reward < 1 ||
-      reward > DAILY_MAX
-    ) {
+    if (!Number.isInteger(reward) || reward < 1 || reward > DAILY_MAX) {
       return fail(res, 400, "Invalid reward.");
     }
 
@@ -1384,11 +1275,9 @@ app.post("/api/admin/social-tasks", adminAuth, async (req, res) => {
         .single()
     );
 
-    res.json({
-      success: true,
-      task
-    });
+    res.json({ success: true, task });
   } catch (e) {
+    console.error("[ADMIN SOCIAL TASK CREATE ERROR]", e);
     fail(res, 400, e.message);
   }
 });
@@ -1426,11 +1315,9 @@ app.patch(
           .single()
       );
 
-      res.json({
-        success: true,
-        task
-      });
+      res.json({ success: true, task });
     } catch (e) {
+      console.error("[ADMIN SOCIAL TASK UPDATE ERROR]", e);
       fail(res, 400, e.message);
     }
   }
@@ -1459,26 +1346,21 @@ app.get("/api/admin/stats", adminAuth, async (req, res) => {
       totalUsers: users.length,
       activeUsers: users.filter((u) => !u.is_blocked).length,
       blockedUsers: users.filter((u) => u.is_blocked).length,
-      pendingWithdrawals: withdrawals.filter(
-        (w) => w.status === "pending"
-      ).length,
-      pendingBadgeRequests: shop.filter(
-        (s) => s.status === "pending"
-      ).length
+      pendingWithdrawals: withdrawals.filter((w) => w.status === "pending").length,
+      pendingBadgeRequests: shop.filter((s) => s.status === "pending").length
     });
   } catch (e) {
+    console.error("[ADMIN STATS ERROR]", e);
     fail(res, 400, e.message);
   }
 });
 
-/* ADSGRAM REWARDS
-   Rewards must only be granted after a verified server-side callback.
-*/
-
-/* ERROR HANDLER */
+/* GLOBAL ERROR HANDLER */
 
 app.use((err, req, res, next) => {
-  console.error(err);
+  console.error("[UNHANDLED ERROR]", err);
+
+  if (res.headersSent) return next(err);
 
   res.status(500).json({
     error: "Internal server error."
