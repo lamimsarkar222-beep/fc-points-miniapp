@@ -656,9 +656,16 @@ app.get("/api/social-tasks", telegramAuth, async (req, res) => {
 });
 
 app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
+  let reservedClaim = false;
+  let taskId = "";
+  let telegramId = "";
+
   try {
     const user = await ensureUser(req.telegramUser);
-    const taskId = String(req.body?.taskId || "");
+    telegramId = String(user.telegram_id);
+    taskId = String(req.body?.taskId || "");
+
+    if (!taskId) return fail(res, 400, "Task ID required.");
 
     const task = await db(
       "social_tasks",
@@ -682,7 +689,7 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
         .from("social_task_claims")
         .select("id")
         .eq("task_id", taskId)
-        .eq("telegram_id", String(user.telegram_id))
+        .eq("telegram_id", telegramId)
         .maybeSingle()
     );
 
@@ -696,7 +703,7 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
       "/getChatMember?chat_id=" +
       encodeURIComponent(task.channel_username) +
       "&user_id=" +
-      encodeURIComponent(String(user.telegram_id));
+      encodeURIComponent(telegramId);
 
     const check = await fetch(url);
     const result = await check.json();
@@ -720,27 +727,48 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
       return fail(res, 400, "Invalid task reward.");
     }
 
-    const activity = await getOrCreateActivity(user.telegram_id);
+    const activity = await getOrCreateActivity(telegramId);
 
     if (Number(activity.total_earned || 0) + reward > DAILY_MAX) {
       return fail(res, 400, "আজকের দৈনিক সীমা পূর্ণ হয়েছে।");
     }
 
+    // Reserve the one-time claim first; the database unique constraint
+    // prevents the same user from claiming the same task twice.
     await db(
       "social_task_claims",
       supabase.from("social_task_claims").insert({
         task_id: taskId,
-        telegram_id: String(user.telegram_id),
+        telegram_id: telegramId,
         claimed_at: new Date().toISOString()
       })
     );
 
-    const resultPoints = await addPoints(
-      user.telegram_id,
-      reward,
-      "social_task",
-      "Social task: " + String(task.title || taskId)
-    );
+    reservedClaim = true;
+
+    let resultPoints;
+
+    try {
+      resultPoints = await addPoints(
+        telegramId,
+        reward,
+        "social_task",
+        "Social task: " + String(task.title || taskId)
+      );
+    } catch (rewardError) {
+      // Let the user retry if the reward operation fails.
+      await db(
+        "social_task_claims",
+        supabase
+          .from("social_task_claims")
+          .delete()
+          .eq("task_id", taskId)
+          .eq("telegram_id", telegramId)
+      );
+
+      reservedClaim = false;
+      throw rewardError;
+    }
 
     res.json({
       success: true,
@@ -749,6 +777,22 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
     });
   } catch (e) {
     console.error("[SOCIAL TASK CLAIM ERROR]", e);
+
+    if (reservedClaim && taskId && telegramId) {
+      try {
+        await db(
+          "social_task_claims",
+          supabase
+            .from("social_task_claims")
+            .delete()
+            .eq("task_id", taskId)
+            .eq("telegram_id", telegramId)
+        );
+      } catch (cleanupError) {
+        console.error("[SOCIAL TASK CLAIM CLEANUP ERROR]", cleanupError);
+      }
+    }
+
     fail(res, 400, e.message);
   }
 });
