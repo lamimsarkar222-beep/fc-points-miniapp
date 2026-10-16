@@ -1,4 +1,3 @@
-
 const express = require("express");
 const crypto = require("crypto");
 const path = require("path");
@@ -635,6 +634,27 @@ app.get("/api/transactions", telegramAuth, async (req, res) => {
   }
 });
 
+/* USER: ADMIN MESSAGES */
+
+app.get("/api/messages", telegramAuth, async (req, res) => {
+  try {
+    const messages = await db(
+      "admin_messages",
+      supabase
+        .from("admin_messages")
+        .select("id,title,message,created_at")
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .limit(100)
+    );
+
+    res.json({ messages: messages || [] });
+  } catch (e) {
+    console.error("[MESSAGES LIST ERROR]", e);
+    fail(res, 400, e.message);
+  }
+});
+
 /* SOCIAL TASKS */
 
 app.get("/api/social-tasks", telegramAuth, async (req, res) => {
@@ -733,8 +753,6 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
       return fail(res, 400, "আজকের দৈনিক সীমা পূর্ণ হয়েছে।");
     }
 
-    // Reserve the one-time claim first; the database unique constraint
-    // prevents the same user from claiming the same task twice.
     await db(
       "social_task_claims",
       supabase.from("social_task_claims").insert({
@@ -756,7 +774,6 @@ app.post("/api/social-tasks/claim", telegramAuth, async (req, res) => {
         "Social task: " + String(task.title || taskId)
       );
     } catch (rewardError) {
-      // Let the user retry if the reward operation fails.
       await db(
         "social_task_claims",
         supabase
@@ -883,7 +900,7 @@ app.get("/api/referral", telegramAuth, async (req, res) => {
   }
 });
 
-/* WITHDRAWALS — existing behavior retained */
+/* WITHDRAWALS */
 
 app.post("/api/withdrawals", telegramAuth, async (req, res) => {
   try {
@@ -1085,7 +1102,88 @@ app.post("/api/admin/users/:id/points", adminAuth, async (req, res) => {
   }
 });
 
-/* ADMIN: WITHDRAWALS — unchanged */
+/* ADMIN: MESSAGES & HISTORY */
+
+app.get("/api/admin/messages", adminAuth, async (req, res) => {
+  try {
+    const messages = await db(
+      "admin_messages",
+      supabase
+        .from("admin_messages")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(500)
+    );
+
+    res.json({ messages: messages || [] });
+  } catch (e) {
+    console.error("[ADMIN MESSAGES LIST ERROR]", e);
+    fail(res, 400, e.message);
+  }
+});
+
+app.post("/api/admin/messages", adminAuth, async (req, res) => {
+  try {
+    const title = String(req.body?.title || "").trim();
+    const message = String(req.body?.message || "").trim();
+
+    if (!title || title.length > 100) {
+      return fail(res, 400, "শিরোনাম ১ থেকে ১০০ অক্ষরের মধ্যে দিন।");
+    }
+
+    if (!message || message.length > 2000) {
+      return fail(res, 400, "মেসেজ ১ থেকে ২০০০ অক্ষরের মধ্যে দিন।");
+    }
+
+    const created = await db(
+      "admin_messages",
+      supabase
+        .from("admin_messages")
+        .insert({
+          title,
+          message,
+          created_by: ADMIN_TELEGRAM_ID,
+          active: true,
+          created_at: new Date().toISOString()
+        })
+        .select("*")
+        .single()
+    );
+
+    res.json({ success: true, message: created });
+  } catch (e) {
+    console.error("[ADMIN MESSAGE CREATE ERROR]", e);
+    fail(res, 400, e.message);
+  }
+});
+
+app.delete("/api/admin/messages/:id", adminAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+
+    if (!id) return fail(res, 400, "Message ID required.");
+
+    const deleted = await db(
+      "admin_messages",
+      supabase
+        .from("admin_messages")
+        .delete()
+        .eq("id", id)
+        .select("id")
+    );
+
+    if (!deleted || deleted.length === 0) {
+      return fail(res, 404, "Message not found.");
+    }
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error("[ADMIN MESSAGE DELETE ERROR]", e);
+    fail(res, 400, e.message);
+  }
+});
+
+/* ADMIN: WITHDRAWALS */
 
 app.get("/api/admin/withdrawals", adminAuth, async (req, res) => {
   try {
