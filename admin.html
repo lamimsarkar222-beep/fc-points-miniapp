@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="bn">
 <head>
@@ -10,8 +9,9 @@
 body{margin:0;background:#f1f5f9;color:#172033;font-family:Arial,sans-serif;padding:16px}
 main{max-width:1000px;margin:auto}
 .card{background:white;padding:16px;margin:12px 0;border-radius:12px;box-shadow:0 2px 8px #0001}
-input,button{padding:11px;margin:4px 0;border:1px solid #cbd5e1;border-radius:7px;font-size:14px}
-input{max-width:100%;width:100%}
+input,textarea,button{padding:11px;margin:4px 0;border:1px solid #cbd5e1;border-radius:7px;font-size:14px}
+input,textarea{max-width:100%;width:100%}
+textarea{min-height:120px;resize:vertical}
 button{background:#2563eb;color:white;border:0;cursor:pointer}
 button.red{background:#dc2626}
 button.green{background:#15803d}
@@ -20,6 +20,7 @@ button.green{background:#15803d}
 .item{border-top:1px solid #e2e8f0;padding:12px 0;overflow-wrap:anywhere}
 .small{color:#64748b;font-size:13px}
 .hidden{display:none}
+.message-body{white-space:pre-wrap;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -35,11 +36,29 @@ button.green{background:#15803d}
 </section>
 
 <div id="panel" class="hidden">
+
 <section class="card">
 <button onclick="loadAll()">Refresh Data</button>
 <button class="red" onclick="logout()">Logout</button>
 <p id="status" class="small"></p>
 <div class="row" id="stats"></div>
+</section>
+
+<section class="card">
+<h3>Messages & History</h3>
+<p class="small">এখানে প্রকাশিত মেসেজ FP Points অ্যাপের ব্যবহারকারীরা দেখতে পারবেন।</p>
+
+<label for="messageTitle">Message Title</label>
+<input id="messageTitle" maxlength="100" placeholder="মেসেজের শিরোনাম লিখুন">
+
+<label for="messageText">Message</label>
+<textarea id="messageText" maxlength="2000" placeholder="ব্যবহারকারীদের জন্য মেসেজ লিখুন"></textarea>
+
+<button class="green" id="publishMessageButton" onclick="publishMessage()">Publish Message</button>
+<button onclick="loadMessages()">Refresh Messages</button>
+
+<p id="messageStatus" class="small"></p>
+<div id="messages"></div>
 </section>
 
 <section class="card">
@@ -68,6 +87,7 @@ button.green{background:#15803d}
 <button onclick="createTask()">Create Task</button>
 <div id="tasks"></div>
 </section>
+
 </div>
 </main>
 
@@ -97,8 +117,14 @@ async function request(path, options={}){
 async function login(){
  const id=document.getElementById("adminId").value.trim();
  const password=document.getElementById("adminPassword").value;
- if(!id||!password){document.getElementById("loginMsg").textContent="ID ও Password দিন।";return}
+
+ if(!id||!password){
+  document.getElementById("loginMsg").textContent="ID ও Password দিন।";
+  return;
+ }
+
  admin={id,password};
+
  try{
   await request("/api/admin/stats");
   document.getElementById("login").classList.add("hidden");
@@ -116,6 +142,7 @@ function logout(){
  document.getElementById("panel").classList.add("hidden");
  document.getElementById("login").classList.remove("hidden");
  document.getElementById("adminPassword").value="";
+ document.getElementById("loginMsg").textContent="";
 }
 
 function el(tag,text){
@@ -124,8 +151,11 @@ function el(tag,text){
  return n;
 }
 
+/* LOAD ADMIN DATA */
+
 async function loadAll(){
  document.getElementById("status").textContent="Loading...";
+
  try{
   const [s,u,w,b,t]=await Promise.all([
    request("/api/admin/stats"),
@@ -134,21 +164,155 @@ async function loadAll(){
    request("/api/admin/shop-requests"),
    request("/api/admin/social-tasks")
   ]);
+
   users=u.users||[];
   showStats(s);
   renderUsers();
   renderWithdrawals(w.withdrawals||[]);
   renderShop(b.requests||[]);
   renderTasks(t.tasks||[]);
+
+  await loadMessages();
+
   document.getElementById("status").textContent="Data loaded";
  }catch(e){
   document.getElementById("status").textContent="Error: "+e.message;
  }
 }
 
+/* MESSAGES & HISTORY */
+
+async function loadMessages(){
+ const box=document.getElementById("messages");
+ const status=document.getElementById("messageStatus");
+
+ status.textContent="মেসেজ লোড হচ্ছে...";
+
+ try{
+  const data=await request("/api/admin/messages");
+  const rows=data.messages||[];
+
+  box.replaceChildren();
+
+  if(!rows.length){
+   box.append(el("p","এখনো কোনো মেসেজ প্রকাশ করা হয়নি।"));
+   status.textContent="কোনো মেসেজ নেই।";
+   return;
+  }
+
+  rows.forEach(m=>{
+   const div=el("div");
+   div.className="item";
+
+   const title=el("h4",m.title||"FP Points Message");
+   const body=el("p",m.message||"");
+   body.className="message-body";
+
+   const date=el(
+    "div",
+    "প্রকাশের সময়: "+formatDate(m.created_at)
+   );
+   date.className="small";
+
+   const active=el(
+    "div",
+    "Status: "+(m.active?"Published":"Inactive")
+   );
+   active.className="small";
+
+   div.append(title,body,date,active);
+
+   const del=el("button","Delete Message");
+   del.className="red";
+
+   del.onclick=async()=>{
+    if(!confirm("এই মেসেজটি স্থায়ীভাবে মুছে ফেলতে চান?"))return;
+
+    try{
+     await request("/api/admin/messages/"+encodeURIComponent(m.id),{
+      method:"DELETE"
+     });
+
+     status.textContent="মেসেজ মুছে ফেলা হয়েছে।";
+     await loadMessages();
+    }catch(e){
+     alert("মেসেজ মুছতে সমস্যা হয়েছে: "+e.message);
+    }
+   };
+
+   div.append(del);
+   box.append(div);
+  });
+
+  status.textContent="মোট মেসেজ: "+rows.length;
+ }catch(e){
+  box.replaceChildren();
+  box.append(el("p","মেসেজ লোড করা যায়নি।"));
+  status.textContent="Error: "+e.message;
+ }
+}
+
+async function publishMessage(){
+ const title=document.getElementById("messageTitle").value.trim();
+ const message=document.getElementById("messageText").value.trim();
+ const status=document.getElementById("messageStatus");
+ const button=document.getElementById("publishMessageButton");
+
+ if(!title){
+  alert("মেসেজের শিরোনাম লিখুন।");
+  return;
+ }
+
+ if(!message){
+  alert("মেসেজ লিখুন।");
+  return;
+ }
+
+ if(title.length>100||message.length>2000){
+  alert("শিরোনাম সর্বোচ্চ ১০০ এবং মেসেজ সর্বোচ্চ ২০০০ অক্ষর হতে পারবে।");
+  return;
+ }
+
+ button.disabled=true;
+ status.textContent="মেসেজ প্রকাশ হচ্ছে...";
+
+ try{
+  await request("/api/admin/messages",{
+   method:"POST",
+   body:JSON.stringify({title,message})
+  });
+
+  document.getElementById("messageTitle").value="";
+  document.getElementById("messageText").value="";
+
+  status.textContent="মেসেজ সফলভাবে প্রকাশ করা হয়েছে।";
+  alert("মেসেজ প্রকাশ হয়েছে।");
+
+  await loadMessages();
+ }catch(e){
+  status.textContent="মেসেজ প্রকাশ করা যায়নি: "+e.message;
+  alert("সমস্যা: "+e.message);
+ }finally{
+  button.disabled=false;
+ }
+}
+
+function formatDate(value){
+ if(!value)return "সময় পাওয়া যায়নি";
+
+ const date=new Date(value);
+
+ if(Number.isNaN(date.getTime()))return "সময় পাওয়া যায়নি";
+
+ return date.toLocaleString("bn-BD");
+}
+
+/* DASHBOARD STATS */
+
 function showStats(s){
  const box=document.getElementById("stats");
  box.replaceChildren();
+
  [
   ["Total Users",s.totalUsers],
   ["Active Users",s.activeUsers],
@@ -163,15 +327,21 @@ function showStats(s){
  });
 }
 
+/* USERS */
+
 function renderUsers(){
  const box=document.getElementById("users");
  box.replaceChildren();
+
  const q=document.getElementById("userSearch").value.toLowerCase();
- users.filter(u=>[u.telegram_id,u.display_name,u.username,u.first_name]
-  .some(v=>String(v||"").toLowerCase().includes(q)))
+
+ users.filter(u=>[
+  u.telegram_id,u.display_name,u.username,u.first_name
+ ].some(v=>String(v||"").toLowerCase().includes(q)))
  .forEach(u=>{
   const div=el("div");
   div.className="item";
+
   div.append(
    el("b",u.display_name||u.first_name||"User"),
    el("div","Telegram ID: "+u.telegram_id),
@@ -179,58 +349,90 @@ function renderUsers(){
    el("div","Balance: "+(u.balance||0)+" FP"),
    el("div",u.is_blocked?"Status: Blocked":"Status: Active")
   );
+
   const name=document.createElement("input");
   name.placeholder="Change display name";
   name.value=u.display_name||"";
+
   const edit=el("button","Save Name");
+
   edit.onclick=async()=>{
    try{
     await request("/api/admin/users/"+encodeURIComponent(u.telegram_id),{
-     method:"PATCH",body:JSON.stringify({display_name:name.value})
+     method:"PATCH",
+     body:JSON.stringify({display_name:name.value})
     });
+
     await loadAll();
-   }catch(e){alert(e.message)}
+   }catch(e){
+    alert(e.message);
+   }
   };
+
   const amount=document.createElement("input");
   amount.type="number";
   amount.placeholder="Points: +100 or -100";
+
   const reason=document.createElement("input");
   reason.placeholder="Reason for adjustment";
+
   const adjust=el("button","Adjust Points");
+
   adjust.onclick=async()=>{
    const n=Number(amount.value);
+
    if(!Number.isInteger(n)||n===0||!reason.value.trim()){
-    alert("সঠিক Points ও Reason দিন।");return;
+    alert("সঠিক Points ও Reason দিন।");
+    return;
    }
+
    try{
     await request("/api/admin/users/"+encodeURIComponent(u.telegram_id)+"/points",{
-     method:"POST",body:JSON.stringify({amount:n,reason:reason.value.trim()})
+     method:"POST",
+     body:JSON.stringify({
+      amount:n,
+      reason:reason.value.trim()
+     })
     });
+
     alert("Points updated");
     await loadAll();
-   }catch(e){alert(e.message)}
+   }catch(e){
+    alert(e.message);
+   }
   };
+
   const block=el("button",u.is_blocked?"Unblock User":"Block User");
   block.className=u.is_blocked?"green":"red";
+
   block.onclick=async()=>{
    try{
     await request("/api/admin/users/"+encodeURIComponent(u.telegram_id),{
-     method:"PATCH",body:JSON.stringify({is_blocked:!u.is_blocked})
+     method:"PATCH",
+     body:JSON.stringify({is_blocked:!u.is_blocked})
     });
+
     await loadAll();
-   }catch(e){alert(e.message)}
+   }catch(e){
+    alert(e.message);
+   }
   };
+
   div.append(name,edit,amount,reason,adjust,block);
   box.append(div);
  });
 }
 
+/* WITHDRAWALS */
+
 function renderWithdrawals(rows){
  const box=document.getElementById("withdrawals");
  box.replaceChildren();
+
  rows.forEach(w=>{
   const div=el("div");
   div.className="item";
+
   div.append(
    el("b","Request: "+w.id),
    el("div","User: "+w.telegram_id),
@@ -239,6 +441,7 @@ function renderWithdrawals(rows){
    el("div","Account: "+w.account),
    el("div","Status: "+w.status)
   );
+
   if(w.status==="pending"){
    ["approve","reject"].forEach(action=>{
     const btn=el("button",action==="approve"?"Approve":"Reject");
@@ -247,17 +450,23 @@ function renderWithdrawals(rows){
     div.append(btn);
    });
   }
+
   box.append(div);
  });
+
  if(!rows.length)box.append(el("p","No withdrawal requests."));
 }
+
+/* BADGE REQUESTS */
 
 function renderShop(rows){
  const box=document.getElementById("shopRequests");
  box.replaceChildren();
+
  rows.forEach(r=>{
   const div=el("div");
   div.className="item";
+
   div.append(
    el("b","Request: "+r.id),
    el("div","User: "+r.telegram_id),
@@ -265,6 +474,7 @@ function renderShop(rows){
    el("div","Price: "+r.price+" FP"),
    el("div","Status: "+r.status)
   );
+
   if(r.status==="pending"){
    ["approve","reject"].forEach(action=>{
     const btn=el("button",action==="approve"?"Approve":"Reject");
@@ -273,18 +483,29 @@ function renderShop(rows){
     div.append(btn);
    });
   }
+
   box.append(div);
  });
+
  if(!rows.length)box.append(el("p","No badge requests."));
 }
 
 async function review(path,action){
  if(!confirm("আপনি কি "+action+" করতে চান?"))return;
+
  try{
-  await request(path,{method:"POST",body:JSON.stringify({action})});
+  await request(path,{
+   method:"POST",
+   body:JSON.stringify({action})
+  });
+
   await loadAll();
- }catch(e){alert(e.message)}
+ }catch(e){
+  alert(e.message);
+ }
 }
+
+/* SOCIAL TASKS */
 
 async function createTask(){
  const payload={
@@ -294,39 +515,54 @@ async function createTask(){
   channel_username:document.getElementById("channelUsername").value.trim(),
   reward:Number(document.getElementById("taskReward").value)
  };
+
  try{
   await request("/api/admin/social-tasks",{
-   method:"POST",body:JSON.stringify(payload)
+   method:"POST",
+   body:JSON.stringify(payload)
   });
+
   alert("Task created");
   await loadAll();
- }catch(e){alert(e.message)}
+ }catch(e){
+  alert(e.message);
+ }
 }
 
 function renderTasks(rows){
  const box=document.getElementById("tasks");
  box.replaceChildren();
+
  rows.forEach(t=>{
   const div=el("div");
   div.className="item";
+
   div.append(
    el("b",t.title),
    el("div","Reward: "+t.reward+" FP"),
    el("div","Channel: "+(t.channel_username||"Not set")),
    el("div","Status: "+(t.enabled?"Enabled":"Disabled"))
   );
+
   const btn=el("button",t.enabled?"Disable Task":"Enable Task");
+
   btn.onclick=async()=>{
    try{
     await request("/api/admin/social-tasks/"+t.id,{
-     method:"PATCH",body:JSON.stringify({enabled:!t.enabled})
+     method:"PATCH",
+     body:JSON.stringify({enabled:!t.enabled})
     });
+
     await loadAll();
-   }catch(e){alert(e.message)}
+   }catch(e){
+    alert(e.message);
+   }
   };
+
   div.append(btn);
   box.append(div);
  });
+
  if(!rows.length)box.append(el("p","No social tasks."));
 }
 </script>
