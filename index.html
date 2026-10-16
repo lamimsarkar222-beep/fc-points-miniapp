@@ -147,6 +147,16 @@ a{overflow-wrap:anywhere}
   </div>
 </section>
 
+<!-- NEW: NOTIFICATIONS PAGE -->
+<section id="notifications" class="page">
+  <div class="section-title">Notifications</div>
+  <div class="card">
+    <p class="muted">Official updates and announcements from FP Points Admin.</p>
+    <button class="btn secondary full" id="refreshNotificationsButton" onclick="loadNotifications(this)">Refresh Notifications</button>
+    <div id="notificationsList"><div class="notice">Loading notifications…</div></div>
+  </div>
+</section>
+
 <section id="shop" class="page">
   <div class="section-title">VIP Shop</div>
   <div class="card">
@@ -228,6 +238,8 @@ a{overflow-wrap:anywhere}
 <nav class="nav">
   <button class="active" data-page="home" onclick="showPage('home',this)"><span class="ni">⌂</span>Home</button>
   <button data-page="tasks" onclick="showPage('tasks',this)"><span class="ni">✓</span>Tasks</button>
+  <!-- NEW: NOTIFICATIONS MENU ITEM -->
+  <button data-page="notifications" onclick="showPage('notifications',this)"><span class="ni">🔔</span>Notifications</button>
   <button data-page="shop" onclick="showPage('shop',this)"><span class="ni">♢</span>Shop</button>
   <button data-page="withdraw" onclick="showPage('withdraw',this)"><span class="ni">⇧</span>Withdraw</button>
   <button data-page="profile" onclick="showPage('profile',this)"><span class="ni">◉</span>Profile</button>
@@ -479,9 +491,66 @@ function showPage(id,button){
   window.scrollTo({top:0,behavior:'smooth'});
   if(id==='shop')loadShop();
   if(id==='tasks'){loadTaskStatus();loadSocialTasks();}
+  if(id==='notifications')loadNotifications();
   if(id==='withdraw')loadWithdrawals();
 }
 window.showPage=showPage;
+
+/* NEW: NOTIFICATIONS DATE AND LOAD FUNCTIONS */
+function formatNotificationDate(value){
+  if(!value)return 'Date unavailable';
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime()))return 'Date unavailable';
+  return new Intl.DateTimeFormat('en-GB',{
+    timeZone:'Asia/Dhaka',
+    day:'2-digit',
+    month:'short',
+    year:'numeric',
+    hour:'2-digit',
+    minute:'2-digit',
+    hour12:true
+  }).format(date)+' (Dhaka time)';
+}
+
+async function loadNotifications(button){
+  const box=$('notificationsList');
+  const refreshButton=button||$('refreshNotificationsButton');
+  if(!box)return;
+  if(refreshButton)refreshButton.disabled=true;
+  box.innerHTML='<div class="notice">Loading notifications…</div>';
+  try{
+    const data=await api('/api/messages');
+    const messages=Array.isArray(data.messages)?data.messages:[];
+    box.innerHTML='';
+    if(!messages.length){
+      box.innerHTML='<div class="notice">No notifications yet.</div>';
+      return;
+    }
+    messages.forEach(item=>{
+      const card=document.createElement('div');
+      card.className='item';
+      const title=document.createElement('strong');
+      title.textContent=item.title||'FP Points Announcement';
+      const date=document.createElement('div');
+      date.className='muted small';
+      date.style.margin='6px 0 10px';
+      date.textContent=formatNotificationDate(item.created_at);
+      const message=document.createElement('p');
+      message.className='muted';
+      message.style.whiteSpace='pre-wrap';
+      message.style.overflowWrap='anywhere';
+      message.textContent=item.message||'';
+      card.append(title,date,message);
+      box.appendChild(card);
+    });
+  }catch(error){
+    box.innerHTML='<div class="notice">Notifications could not be loaded. Please try again.</div>';
+    console.error('[NOTIFICATIONS ERROR]',error);
+  }finally{
+    if(refreshButton)refreshButton.disabled=false;
+  }
+}
+window.loadNotifications=loadNotifications;
 
 async function refreshUser(){
   const data=await api('/api/user');
