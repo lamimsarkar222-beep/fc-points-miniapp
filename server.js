@@ -642,8 +642,13 @@ app.get("/api/messages", telegramAuth, async (req, res) => {
       "admin_messages",
       supabase
         .from("admin_messages")
-        .select("id,title,message,created_at")
+        .select("id,title,message,created_at,target_telegram_id")
         .eq("active", true)
+        .or(
+          `target_telegram_id.is.null,target_telegram_id.eq.${String(
+            req.telegramUser.id
+          )}`
+        )
         .order("created_at", { ascending: false })
         .limit(100)
     );
@@ -1091,6 +1096,22 @@ app.post("/api/admin/users/:id/points", adminAuth, async (req, res) => {
         target_telegram_id: id,
         action: "points_adjustment",
         details: { amount, reason },
+        created_at: new Date().toISOString()
+      })
+    );
+
+    /* SEND POINTS ADJUSTMENT REASON TO THAT USER'S NOTIFICATIONS */
+
+    await db(
+      "admin_messages",
+      supabase.from("admin_messages").insert({
+        title: amount > 0 ? "FP Points Added" : "FP Points Deducted",
+        message: `${Math.abs(amount)} FP ${
+          amount > 0 ? "যোগ করা হয়েছে" : "বিয়োগ করা হয়েছে"
+        }। কারণ: ${reason}`,
+        created_by: ADMIN_TELEGRAM_ID,
+        target_telegram_id: id,
+        active: true,
         created_at: new Date().toISOString()
       })
     );
