@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <meta name="theme-color" content="#101827">
-<title>FC Points</title>
+<title>FP Points</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{--bg:#101827;--panel:#192538;--panel2:#202f45;--text:#f5f7fb;--muted:#9cacc2;--accent:#62e6b5;--line:#304158}
@@ -50,26 +50,27 @@ label{display:block;margin-top:14px;font-size:13px;color:var(--muted)}
 .profile-avatar{width:54px;height:54px;border-radius:50%;background:#263b50;display:grid;place-items:center;font-size:24px;overflow:hidden}
 #profileName{overflow-wrap:anywhere}
 .profile-badges{display:inline-flex;align-items:center;gap:5px;margin-left:5px;vertical-align:middle}
-.profile-badge{display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;line-height:1;flex-shrink:0}
-.profile-badge.blue_tick{width:17px;height:17px;border-radius:50%;background:#2589ff;color:#fff}
-.profile-badge.blueberry{color:#a78bfa;font-size:17px}
-.profile-badge.green_berry{color:#35d399;font-size:17px}
-.profile-badge.black_vip{color:#f5f7fb;font-size:16px;text-shadow:0 0 5px #000}
+.profile-badge{display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;line-height:1;flex-shrink:0;width:18px;height:18px;border-radius:50%}
+.profile-badge.blue_tick{background:#2589ff;color:#fff}
+.profile-badge.blueberry{background:#2589ff;color:#fff}
+.profile-badge.green_berry{background:#35d399;color:#10352b}
+.profile-badge.black_vip{background:linear-gradient(135deg,#111,#d6ad53);color:#fff;border:1px solid #d6ad53}
 #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#e7fff5;color:#13271f;padding:12px 16px;border-radius:12px;z-index:10;display:none;max-width:90%;font-size:13px}
+a{overflow-wrap:anywhere}
 </style>
 </head>
 <body>
 <div class="app">
 <header>
-  <div class="brand">FC <span>POINTS</span></div>
+  <div class="brand">FP <span>POINTS</span></div>
   <div class="pill" id="connection">Connecting…</div>
 </header>
 
 <main>
 <section id="home" class="page active">
   <div class="card balance">
-    <div class="muted">Your FC Points balance</div>
-    <div class="amount" id="balance">0 FC</div>
+    <div class="muted">Your FP Points balance</div>
+    <div class="amount" id="balance">0 FP</div>
     <div class="row">
       <span class="muted" id="userGreeting">Welcome!</span>
       <button class="btn secondary" onclick="showPage('profile')">My profile</button>
@@ -81,52 +82,52 @@ label{display:block;margin-top:14px;font-size:13px;color:var(--muted)}
     <div class="row">
       <div>
         <div class="muted">Today's normal earnings</div>
-        <strong id="normalEarned">0 / 200 FC</strong>
+        <strong id="normalEarned">0 / 200 FP</strong>
       </div>
       <div class="icon">⏱️</div>
     </div>
     <div class="progress"><span id="normalProgress"></span></div>
     <div class="muted">Earn gradually. Rewarded ads are optional.</div>
     <button id="earningButton" class="btn primary full" onclick="toggleEarning()">Start earning</button>
-    <div id="earningStatus" class="notice">Normal earning gives 1 FC every 6 seconds, up to 200 FC daily.</div>
+    <div id="earningStatus" class="notice">Normal earning gives 1 FP every 6 seconds, up to 200 FP daily.</div>
   </div>
 
   <div class="section-title">Daily Rewards</div>
   <div class="grid">
     <div class="tile">
       <div class="icon">🎟️</div><div class="muted">Ticket</div>
-      <strong>200 FC</strong><div class="small muted">4 rewarded ads × 50</div>
+      <strong>200 FP</strong><div class="small muted">4 rewarded ads × 50</div>
       <button class="btn secondary full" onclick="claimReward('ticket',this)">Claim</button>
     </div>
     <div class="tile">
       <div class="icon">🚀</div><div class="muted">Boost</div>
-      <strong>100 FC</strong><div class="small muted">4 rewarded ads × 25</div>
+      <strong>100 FP</strong><div class="small muted">4 rewarded ads × 25</div>
       <button class="btn secondary full" onclick="claimReward('boost',this)">Claim</button>
     </div>
     <div class="tile">
       <div class="icon">🎁</div><div class="muted">Personal Reward</div>
-      <strong>120 FC</strong><div class="small muted">12 rewarded ads × 10</div>
+      <strong>120 FP</strong><div class="small muted">12 rewarded ads × 10</div>
       <button class="btn secondary full" onclick="claimReward('personal',this)">Claim</button>
     </div>
     <div class="tile">
       <div class="icon">📅</div><div class="muted">Daily Check-in</div>
-      <strong>10 FC</strong><div class="small muted">Once a day</div>
+      <strong>10 FP</strong><div class="small muted">Once a day</div>
       <button class="btn secondary full" onclick="claimReward('checkin',this)">Check in</button>
     </div>
     <div class="tile">
       <div class="icon">✅</div><div class="muted">Daily Task</div>
-      <strong>20 FC</strong><div class="small muted">Daily task status</div>
+      <strong>20 FP</strong><div class="small muted">Daily task status</div>
       <button class="btn secondary full" onclick="showPage('tasks')">View tasks</button>
     </div>
     <div class="tile">
       <div class="icon">📊</div><div class="muted">Daily Total</div>
-      <strong>650 FC</strong><div class="small muted">Maximum planned daily rewards</div>
+      <strong>650 FP</strong><div class="small muted">Maximum daily rewards</div>
     </div>
   </div>
 
-  <div class="section-title">About FC Points</div>
+  <div class="section-title">About FP Points</div>
   <div class="card">
-    <div class="muted">Earn FC Points through available activities. Rewarded ads are optional.</div>
+    <div class="muted">Earn FP Points through available activities. Rewarded ads are optional.</div>
     <button class="btn secondary full" onclick="showPage('about')">About & Support</button>
   </div>
 </section>
@@ -134,7 +135,7 @@ label{display:block;margin-top:14px;font-size:13px;color:var(--muted)}
 <section id="tasks" class="page">
   <div class="section-title">Daily Tasks</div>
   <div class="card">
-    <div class="row"><strong>Daily goal</strong><span class="pill">20 FC</span></div>
+    <div class="row"><strong>Daily goal</strong><span class="pill">20 FP</span></div>
     <p class="muted">Daily task status is checked with the server.</p>
     <div id="dailyTaskStatus" class="notice">Loading task status…</div>
     <button class="btn secondary full" onclick="loadTaskStatus()">Refresh task status</button>
@@ -152,13 +153,18 @@ label{display:block;margin-top:14px;font-size:13px;color:var(--muted)}
     <p class="muted">Choose a badge. Purchase requests require admin approval.</p>
     <div id="shopItems"></div>
   </div>
+  <div class="card">
+    <strong>Blackberry VIP Support</strong>
+    <p class="muted">Blackberry VIP purchase requests and special instructions are handled by FP Points Admin.</p>
+    <a class="btn secondary full" style="display:block;text-align:center;text-decoration:none" href="https://t.me/FoundpointsFP" target="_blank" rel="noopener">Contact FP Points Support</a>
+  </div>
 </section>
 
 <section id="withdraw" class="page">
-  <div class="section-title">Withdraw FC Points</div>
+  <div class="section-title">Withdraw FP Points</div>
   <div class="card">
-    <div class="row"><span class="muted">Current balance</span><strong id="withdrawBalance">0 FC</strong></div>
-    <div class="notice">Minimum withdrawal: 20,000 FC Points. Requests are subject to review.</div>
+    <div class="row"><span class="muted">Current balance</span><strong id="withdrawBalance">0 FP</strong></div>
+    <div class="notice">Minimum withdrawal: 20,000 FP Points. Requests are subject to review.</div>
     <form id="withdrawForm">
       <label for="paymentMethod">Payment method</label>
       <select class="field" id="paymentMethod" required>
@@ -169,7 +175,7 @@ label{display:block;margin-top:14px;font-size:13px;color:var(--muted)}
       </select>
       <label for="paymentIdentifier">Payment number or ID</label>
       <input class="field" id="paymentIdentifier" required maxlength="100" placeholder="Enter payment details">
-      <label for="withdrawAmount">Amount (FC Points)</label>
+      <label for="withdrawAmount">Amount (FP Points)</label>
       <input class="field" id="withdrawAmount" required type="number" min="20000" step="1" placeholder="Minimum 20000">
       <button class="btn primary full" id="withdrawButton" type="submit">Submit withdrawal request</button>
     </form>
@@ -199,20 +205,21 @@ label{display:block;margin-top:14px;font-size:13px;color:var(--muted)}
     <div id="badgeList" class="notice">Loading badges…</div>
   </div>
   <div class="card">
-    <div class="muted">FC Points balance</div>
-    <div class="amount" id="profileBalance">0 FC</div>
+    <div class="muted">FP Points balance</div>
+    <div class="amount" id="profileBalance">0 FP</div>
   </div>
 </section>
 
 <section id="about" class="page">
   <div class="section-title">About & Support</div>
   <div class="card">
-    <strong>About FC Points</strong>
-    <p class="muted">FC Points is a rewards mini app. Earn through supported activities and check your balance in your profile.</p>
+    <strong>About FP Points</strong>
+    <p class="muted">FP Points is a rewards mini app. Earn through supported activities and check your balance in your profile.</p>
   </div>
   <div class="card">
     <strong>Support</strong>
-    <p class="muted">The official support contact has not been configured yet.</p>
+    <p class="muted">For app help and support, contact the official FP Points support channel.</p>
+    <a class="btn primary full" style="display:block;text-align:center;text-decoration:none" href="https://t.me/FoundpointsFP" target="_blank" rel="noopener">Contact Support</a>
   </div>
 </section>
 </main>
@@ -250,7 +257,7 @@ const state={
 };
 
 const $=id=>document.getElementById(id);
-const EARNING_KEY='fc_points_normal_earning_enabled';
+const EARNING_KEY='fp_points_normal_earning_enabled';
 
 function bangladeshDay(){
   const parts=new Intl.DateTimeFormat('en-CA',{
@@ -285,22 +292,17 @@ function updateEarningUI(){
     button.disabled=true;
     button.textContent='Daily limit reached';
     button.className='btn secondary full';
-    $('earningStatus').textContent='আজকের ২০০ FC সীমা পূর্ণ হয়েছে। বাংলাদেশ সময় রাত ১২টায় আবার চালু হবে।';
+    $('earningStatus').textContent='আজকের ২০০ FP সীমা পূর্ণ হয়েছে। বাংলাদেশ সময় রাত ১২টায় আবার চালু হবে।';
   }else if(state.earning){
-    button.disabled=true;
-    button.textContent='Earning active ✓';
-    button.className='btn primary full';
-    $('earningStatus').textContent='Normal Earning চালু আছে। পয়েন্ট ব্যালেন্সে যোগ হবে—কোনো পপ-আপ দেখানো হবে না।';
-  }else if(state.earningIntent){
-    button.disabled=true;
-    button.textContent='Earning enabled ✓';
-    button.className='btn primary full';
-    $('earningStatus').textContent='সার্ভারে সাময়িক সমস্যা হলে স্বয়ংক্রিয়ভাবে আবার চেষ্টা করা হবে।';
+    button.disabled=false;
+    button.textContent='Stop earning';
+    button.className='btn danger full';
+    $('earningStatus').textContent='Normal Earning চালু আছে। Stop চাপলে earning বন্ধ হবে।';
   }else{
     button.disabled=false;
     button.textContent='Start earning';
     button.className='btn primary full';
-    $('earningStatus').textContent='Normal earning gives 1 FC every 6 seconds, up to 200 FC daily.';
+    $('earningStatus').textContent='Normal earning gives 1 FP every 6 seconds, up to 200 FP daily.';
   }
 }
 
@@ -315,7 +317,7 @@ if(tg){
 
 function toast(message){
   const el=$('toast');
-  el.textContent=String(message||'Something went wrong.');
+  el.textContent=String(message||'অনুরোধটি সম্পন্ন হয়নি।');
   el.style.display='block';
   clearTimeout(toast.timer);
   toast.timer=setTimeout(()=>el.style.display='none',3500);
@@ -359,7 +361,7 @@ async function api(path,options){
       body:options.body===undefined?undefined:JSON.stringify(options.body)
     });
   }catch(e){
-    throw new Error('সার্ভারের সঙ্গে সংযোগ হচ্ছে না। ইন্টারনেট ও Backend চালু আছে কি না দেখুন।');
+    throw new Error('সার্ভারের সঙ্গে সংযোগ হচ্ছে না। কিছুক্ষণ পর আবার চেষ্টা করুন।');
   }
 
   let data;
@@ -371,7 +373,9 @@ async function api(path,options){
   }
 
   if(!response.ok||data.error||data.status==='error'){
-    throw new Error(data.error||data.message||'অনুরোধটি সম্পন্ন হয়নি।');
+    const raw=String(data.error||data.message||'');
+    const technical=/PGRST|PostgreSQL|Supabase|schema cache|relation .* does not exist|column .* does not exist|ECONN|stack|SQLSTATE/i.test(raw);
+    throw new Error(technical?'সাময়িক সমস্যা হয়েছে। FP Points Support-এ যোগাযোগ করুন।':raw||'অনুরোধটি সম্পন্ন হয়নি।');
   }
 
   return data;
@@ -383,9 +387,10 @@ function points(user){
 
 const BADGE_STYLES={
   blue_tick:{symbol:'✓',className:'blue_tick',title:'Verified Blue Tick'},
-  blueberry:{symbol:'●',className:'blueberry',title:'Blueberry'},
-  green_berry:{symbol:'●',className:'green_berry',title:'Green Berry'},
-  black_vip:{symbol:'◆',className:'black_vip',title:'Black VIP'}
+  blueberry:{symbol:'✓',className:'blueberry',title:'Blueberry'},
+  green_berry:{symbol:'✓',className:'green_berry',title:'Green Berry'},
+  black_vip:{symbol:'✓',className:'black_vip',title:'Blackberry VIP'},
+  blackberry:{symbol:'✓',className:'black_vip',title:'Blackberry VIP'}
 };
 
 function renderProfileBadges(name,badges){
@@ -393,7 +398,6 @@ function renderProfileBadges(name,badges){
   profileName.replaceChildren(document.createTextNode(name));
 
   const validBadges=Array.isArray(badges)?badges:[];
-
   if(!validBadges.length)return;
 
   const badgeGroup=document.createElement('span');
@@ -413,7 +417,6 @@ function renderProfileBadges(name,badges){
     badge.title=item.name||style.title;
     badge.setAttribute('aria-label',item.name||style.title);
     badge.setAttribute('role','img');
-
     badgeGroup.appendChild(badge);
   });
 
@@ -424,24 +427,21 @@ function renderUser(user){
   if(!user)return;
 
   state.user=Object.assign({},state.user||{},user);
-
   const u=state.user;
   const amount=points(u);
   const tgUser=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user;
 
-  $('balance').textContent=amount.toLocaleString()+' FC';
-  $('withdrawBalance').textContent=amount.toLocaleString()+' FC';
-  $('profileBalance').textContent=amount.toLocaleString()+' FC';
+  $('balance').textContent=amount.toLocaleString()+' FP';
+  $('withdrawBalance').textContent=amount.toLocaleString()+' FP';
+  $('profileBalance').textContent=amount.toLocaleString()+' FP';
 
   const name=u.display_name||
     [tgUser&&tgUser.first_name,tgUser&&tgUser.last_name].filter(Boolean).join(' ')||
     u.first_name||
-    'FC Points User';
+    'FP Points User';
 
   $('userGreeting').textContent='Welcome, '+name;
-
-  const userBadges=Array.isArray(u.badges)?u.badges:[];
-  renderProfileBadges(name,userBadges);
+  renderProfileBadges(name,Array.isArray(u.badges)?u.badges:[]);
 
   $('profileUsername').textContent=u.username?'@'+u.username:
     (tgUser&&tgUser.username?'@'+tgUser.username:'Telegram user');
@@ -454,17 +454,14 @@ function renderUser(user){
     $('customName').value=u.display_name||'';
   }
 
-  const earned=Number(
-    state.activity&&state.activity.normal_earned_today!=null
-      ?state.activity.normal_earned_today
-      :0
-  );
+  const earned=Number(state.activity&&state.activity.normal_earned_today!=null
+    ?state.activity.normal_earned_today:0);
 
-  $('normalEarned').textContent=earned+' / '+state.normalMax+' FC';
+  $('normalEarned').textContent=earned+' / '+state.normalMax+' FP';
   $('normalProgress').style.width=Math.min(100,earned/state.normalMax*100)+'%';
 
-  $('badgeList').textContent=userBadges.length
-    ?'Your badges: '+userBadges.map(b=>b.name||b.key||b.badge_key).join(', ')
+  $('badgeList').textContent=(u.badges||[]).length
+    ?'Your badges: '+u.badges.map(b=>b.name||b.key||b.badge_key).join(', ')
     :'No approved VIP badges yet.';
 
   updateEarningUI();
@@ -472,35 +469,26 @@ function renderUser(user){
 
 function showPage(id,button){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-
   const page=$(id);
   if(page)page.classList.add('active');
 
   document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
-
   const nav=button||document.querySelector('.nav button[data-page="'+id+'"]');
   if(nav)nav.classList.add('active');
 
   window.scrollTo({top:0,behavior:'smooth'});
-
   if(id==='shop')loadShop();
-  if(id==='tasks'){
-    loadTaskStatus();
-    loadSocialTasks();
-  }
+  if(id==='tasks'){loadTaskStatus();loadSocialTasks();}
   if(id==='withdraw')loadWithdrawals();
 }
-
 window.showPage=showPage;
 
 async function refreshUser(){
   const data=await api('/api/user');
-
   state.activity={
     normal_earned_today:Number(data.user&&data.user.normal_earned_today||0),
     todayEarned:Number(data.user&&data.user.todayEarned||0)
   };
-
   renderUser(data.user);
   return data.user;
 }
@@ -518,11 +506,7 @@ async function loadApp(){
   setConnection('Connecting…');
 
   try{
-    await api('/api/register',{
-      method:'POST',
-      body:{initData:state.initData}
-    });
-
+    await api('/api/register',{method:'POST',body:{initData:state.initData}});
     await refreshUser();
     setConnection('Connected');
 
@@ -530,24 +514,30 @@ async function loadApp(){
     state.earningIntent=savedEarningIntent();
     updateEarningUI();
 
-    if(state.earningIntent){
-      await startEarningSession();
-    }
+    if(state.earningIntent)await startEarningSession();
 
     await loadTaskStatus();
     await loadSocialTasks();
   }catch(e){
     setConnection('Connection issue');
     toast(e.message);
-    $('earningStatus').textContent=e.message;
+    $('earningStatus').textContent='অ্যাকাউন্ট লোড করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।';
   }
 }
 
 async function toggleEarning(){
-  if(state.earningIntent)return;
-
   if(!state.user){
-    $('earningStatus').textContent='অ্যাকাউন্ট লোড হওয়া পর্যন্ত অপেক্ষা করুন।';
+    toast('অ্যাকাউন্ট লোড হওয়া পর্যন্ত অপেক্ষা করুন।');
+    return;
+  }
+
+  if(state.earning){
+    state.earning=false;
+    saveEarningIntent(false);
+    if(state.earningTimer)clearInterval(state.earningTimer);
+    state.earningTimer=null;
+    state.earnAccumulator=0;
+    updateEarningUI();
     return;
   }
 
@@ -555,18 +545,13 @@ async function toggleEarning(){
   updateEarningUI();
   await startEarningSession();
 }
-
 window.toggleEarning=toggleEarning;
 
 async function startEarningSession(){
   if(state.earning||!state.earningIntent||!state.user)return;
 
   try{
-    const data=await api('/api/earning/start',{
-      method:'POST',
-      body:{}
-    });
-
+    const data=await api('/api/earning/start',{method:'POST',body:{}});
     state.activity=state.activity||{};
     state.activity.normal_earned_today=Number(data.normalEarnedToday||0);
 
@@ -584,12 +569,8 @@ async function startEarningSession(){
   }catch(e){
     state.earning=false;
     updateEarningUI();
-    $('earningStatus').textContent='সার্ভারে সাময়িক সমস্যা হচ্ছে। স্বয়ংক্রিয়ভাবে আবার চেষ্টা করা হবে।';
-    setTimeout(()=>{
-      if(state.earningIntent&&!state.earning&&!state.dailyLimitReached){
-        startEarningSession();
-      }
-    },10000);
+    $('earningStatus').textContent='সাময়িক সমস্যা হয়েছে। কিছুক্ষণ পর Start earning চাপুন।';
+    saveEarningIntent(false);
   }
 }
 
@@ -600,21 +581,18 @@ async function earningTick(){
   if(today!==state.bdDay){
     state.bdDay=today;
     state.earnAccumulator=0;
-    try{
-      await refreshUser();
-    }catch(e){}
-    if(state.earningIntent){
-      state.earning=false;
-      if(state.earningTimer)clearInterval(state.earningTimer);
-      state.earningTimer=null;
-      await startEarningSession();
-    }
+    try{await refreshUser();}catch(e){}
+    state.earning=false;
+    if(state.earningTimer)clearInterval(state.earningTimer);
+    state.earningTimer=null;
+    if(state.earningIntent)await startEarningSession();
     return;
   }
 
   const earned=Number(state.activity&&state.activity.normal_earned_today||0);
   if(earned>=state.normalMax){
     state.earning=false;
+    saveEarningIntent(false);
     if(state.earningTimer)clearInterval(state.earningTimer);
     state.earningTimer=null;
     updateEarningUI();
@@ -628,22 +606,18 @@ async function earningTick(){
   state.earnAccumulator=0;
 
   try{
-    const data=await api('/api/earning/claim',{
-      method:'POST',
-      body:{}
-    });
-
+    const data=await api('/api/earning/claim',{method:'POST',body:{}});
     state.activity=state.activity||{};
-    state.activity.normal_earned_today=Number(data.normalEarnedToday!=null?data.normalEarnedToday:earned+1);
+    state.activity.normal_earned_today=Number(
+      data.normalEarnedToday!=null?data.normalEarnedToday:earned+1
+    );
 
-    if(state.user&&data.balance!=null){
-      state.user.balance=Number(data.balance);
-    }
-
+    if(state.user&&data.balance!=null)state.user.balance=Number(data.balance);
     renderUser(state.user);
 
     if(state.activity.normal_earned_today>=state.normalMax){
       state.earning=false;
+      saveEarningIntent(false);
       if(state.earningTimer)clearInterval(state.earningTimer);
       state.earningTimer=null;
       updateEarningUI();
@@ -653,11 +627,12 @@ async function earningTick(){
     if(/daily limit|limit reached|সীমা পূর্ণ/i.test(message)){
       state.activity.normal_earned_today=state.normalMax;
       state.earning=false;
+      saveEarningIntent(false);
       if(state.earningTimer)clearInterval(state.earningTimer);
       state.earningTimer=null;
       updateEarningUI();
     }else{
-      $('earningStatus').textContent='সংযোগে সাময়িক সমস্যা। স্বয়ংক্রিয়ভাবে আবার চেষ্টা চলছে।';
+      $('earningStatus').textContent='সাময়িক সংযোগ সমস্যা হয়েছে। আবার চেষ্টা করুন।';
       state.earnAccumulator=0;
     }
   }finally{
@@ -671,107 +646,68 @@ function checkBangladeshMidnight(){
 
   state.bdDay=today;
   state.earnAccumulator=0;
-
   if(!state.initData)return;
 
   refreshUser().then(()=>{
     if(state.earningTimer)clearInterval(state.earningTimer);
     state.earningTimer=null;
     state.earning=false;
-
-    if(state.earningIntent){
-      startEarningSession();
-    }else{
-      updateEarningUI();
-    }
+    if(state.earningIntent)startEarningSession();
+    else updateEarningUI();
   }).catch(()=>{
     $('earningStatus').textContent='নতুন দিনের হিসাব আনতে সংযোগের অপেক্ষায় আছে।';
   });
 }
-
 setInterval(checkBangladeshMidnight,15000);
 
-/* APPROVED BADGE PROFILE REFRESH */
 async function refreshProfileBadges(){
   if(!state.initData||state.profileRefreshBusy)return;
-
   if(document.visibilityState==='hidden')return;
-
   state.profileRefreshBusy=true;
-
-  try{
-    await refreshUser();
-  }catch(e){
-    // Keep the existing profile visible if the network is temporarily unavailable.
-  }finally{
-    state.profileRefreshBusy=false;
-  }
+  try{await refreshUser();}catch(e){}
+  finally{state.profileRefreshBusy=false;}
 }
-
 setInterval(refreshProfileBadges,20000);
-
 document.addEventListener('visibilitychange',function(){
-  if(document.visibilityState==='visible'){
-    refreshProfileBadges();
-  }
+  if(document.visibilityState==='visible')refreshProfileBadges();
 });
 
 async function claimReward(type,button){
   if(type==='checkin'){
     setBusy(button,true,'Checking in…');
-
     try{
-      const data=await api('/api/checkin',{
-        method:'POST',
-        body:{}
-      });
-
+      const data=await api('/api/checkin',{method:'POST',body:{}});
       await refreshUser();
       await loadTaskStatus();
-
-      toast('+'+Number(data.awarded||10)+' FC Points');
-    }catch(e){
-      toast(e.message);
-    }finally{
-      setBusy(button,false);
-    }
-
+      toast('+'+Number(data.awarded||10)+' FP Points');
+    }catch(e){toast(e.message);}
+    finally{setBusy(button,false);}
     return;
   }
 
-  if(type==='task'){
-    showPage('tasks');
-    return;
-  }
-
-  toast('এই Reward-এর জন্য AdsGram-এর verified server integration এখনো চালু নেই।');
+  if(type==='task'){showPage('tasks');return;}
+  toast('এই Reward-এর verified ad integration এখনো চালু নেই।');
 }
-
 window.claimReward=claimReward;
 
 async function loadTaskStatus(){
   if(!state.initData)return;
-
   const el=$('dailyTaskStatus');
-
   try{
     const data=await api('/api/tasks/status');
-
     el.textContent=
       'আজকের মোট আয়: '+Number(data.todayEarned||0)+' / '+
-      Number(data.dailyMaximum||650)+' FC. '+
+      Number(data.dailyMaximum||650)+' FP. '+
       (data.checkinClaimed?'Daily check-in নেওয়া হয়েছে।':'Daily check-in এখনো নেওয়া হয়নি।')+' '+
       (data.dailyTaskCompleted?'Daily task সম্পন্ন হয়েছে।':'Daily task এখনো সম্পন্ন হয়নি।');
   }catch(e){
-    el.textContent=e.message;
+    el.textContent='টাস্কের তথ্য এখন পাওয়া যাচ্ছে না। পরে আবার চেষ্টা করুন।';
   }
 }
-
 window.loadTaskStatus=loadTaskStatus;
 
 async function loadSocialTasks(){
   if(!state.initData)return;
-
   const container=$('socialTasks');
   container.textContent='Loading…';
 
@@ -794,7 +730,7 @@ async function loadSocialTasks(){
       const desc=document.createElement('div');
       desc.className='muted';
       desc.textContent=(task.description||'Telegram channel membership verify করুন।')+
-        ' · '+Number(task.reward||0)+' FC';
+        ' · '+Number(task.reward||0)+' FP';
 
       const link=document.createElement('a');
       link.href=task.url||'#';
@@ -811,18 +747,14 @@ async function loadSocialTasks(){
 
       button.onclick=async()=>{
         setBusy(button,true,'Verifying…');
-
         try{
           const result=await api('/api/social-tasks/claim',{
             method:'POST',
             body:{taskId:String(task.id)}
           });
-
           await refreshUser();
           await loadTaskStatus();
-
-          toast('+'+Number(result.awarded||task.reward||0)+' FC Points');
-
+          toast('+'+Number(result.awarded||task.reward||0)+' FP Points');
           button.textContent='Reward claimed';
           button.disabled=true;
         }catch(e){
@@ -835,15 +767,15 @@ async function loadSocialTasks(){
       container.appendChild(row);
     });
   }catch(e){
-    container.textContent=e.message;
+    container.textContent='Social Task-এর তথ্য এখন পাওয়া যাচ্ছে না।';
   }
 }
 
 const badges=[
-  {key:'blueberry',name:'Blueberry',price:5000,description:'Blueberry VIP badge'},
-  {key:'green_berry',name:'Green Berry',price:10000,description:'Green Berry VIP badge'},
+  {key:'blueberry',name:'Blueberry',price:5000,description:'Blue verified checkmark badge'},
+  {key:'green_berry',name:'Green Berry',price:10000,description:'Green verified checkmark badge'},
   {key:'blue_tick',name:'Verified Blue Tick',price:15000,description:'Verified profile badge'},
-  {key:'black_vip',name:'Black VIP',price:25000,description:'Highest VIP badge'}
+  {key:'black_vip',name:'Blackberry VIP',price:25000,description:'Premium VIP badge'}
 ];
 
 async function loadShop(){
@@ -859,7 +791,7 @@ async function loadShop(){
 
     const detail=document.createElement('div');
     detail.className='muted';
-    detail.textContent=item.description+' · '+item.price.toLocaleString()+' FC';
+    detail.textContent=item.description+' · '+item.price.toLocaleString()+' FP';
 
     const button=document.createElement('button');
     button.className='btn secondary full';
@@ -867,13 +799,8 @@ async function loadShop(){
 
     button.onclick=async()=>{
       setBusy(button,true,'Submitting…');
-
       try{
-        await api('/api/shop/request',{
-          method:'POST',
-          body:{badge:item.key}
-        });
-
+        await api('/api/shop/request',{method:'POST',body:{badge:item.key}});
         toast('Purchase request submitted for admin approval.');
         button.textContent='Request submitted';
         button.disabled=true;
@@ -887,34 +814,23 @@ async function loadShop(){
     container.appendChild(row);
   });
 }
-
 window.loadShop=loadShop;
 
 async function saveProfile(button){
   const displayName=$('customName').value.trim();
-
-  if(!displayName){
-    toast('একটি নাম লিখুন।');
-    return;
-  }
+  if(!displayName){toast('একটি নাম লিখুন।');return;}
 
   setBusy(button,true,'Saving…');
-
   try{
     const data=await api('/api/profile/display-name',{
       method:'PATCH',
       body:{displayName}
     });
-
     renderUser(data.user);
     toast('Profile updated.');
-  }catch(e){
-    toast(e.message);
-  }finally{
-    setBusy(button,false);
-  }
+  }catch(e){toast(e.message);}
+  finally{setBusy(button,false);}
 }
-
 window.saveProfile=saveProfile;
 
 $('withdrawForm').addEventListener('submit',async function(e){
@@ -929,7 +845,7 @@ $('withdrawForm').addEventListener('submit',async function(e){
   message.hidden=true;
 
   if(!Number.isInteger(amount)||amount<20000){
-    toast('Minimum withdrawal is 20,000 FC Points.');
+    toast('Minimum withdrawal is 20,000 FP Points.');
     return;
   }
 
@@ -939,39 +855,30 @@ $('withdrawForm').addEventListener('submit',async function(e){
   }
 
   setBusy(button,true,'Submitting…');
-
   try{
     const data=await api('/api/withdrawals',{
       method:'POST',
       body:{amount,method,account}
     });
 
-    if(state.user&&data.balance!=null){
-      state.user.balance=Number(data.balance);
-    }
-
+    if(state.user&&data.balance!=null)state.user.balance=Number(data.balance);
     renderUser(state.user);
 
     message.textContent='Withdrawal request submitted. Status: pending.';
     message.hidden=false;
-
     $('withdrawAmount').value='';
     $('paymentIdentifier').value='';
-
     toast('Withdrawal request submitted.');
     await loadWithdrawals();
   }catch(err){
-    message.textContent=err.message;
+    message.textContent='Withdrawal request সম্পন্ন হয়নি। তথ্য যাচাই করে আবার চেষ্টা করুন।';
     message.hidden=false;
     toast(err.message);
-  }finally{
-    setBusy(button,false);
-  }
+  }finally{setBusy(button,false);}
 });
 
 async function loadWithdrawals(){
   if(!state.initData)return;
-
   const el=$('withdrawalHistory');
   el.textContent='Loading…';
 
@@ -988,14 +895,13 @@ async function loadWithdrawals(){
       const row=document.createElement('div');
       row.className='item';
       row.textContent=
-        Number(w.amount||0).toLocaleString()+' FC · '+
+        Number(w.amount||0).toLocaleString()+' FP · '+
         String(w.method||'')+' · '+
         String(w.status||'pending');
-
       el.appendChild(row);
     });
   }catch(e){
-    el.textContent=e.message;
+    el.textContent='Withdrawal history এখন পাওয়া যাচ্ছে না।';
   }
 }
 
